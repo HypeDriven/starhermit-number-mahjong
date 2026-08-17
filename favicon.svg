@@ -1,0 +1,6 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='#20312a'/>
+<rect x='14' y='8' width='36' height='48' rx='7' fill='#f3ead8'/>
+<rect x='14' y='48' width='36' height='8' rx='4' fill='#d9cdb4'/>
+<text x='32' y='42' font-size='30' text-anchor='middle' fill='#3b3230' font-family='Georgia,serif' font-weight='bold'>7</text>
+<circle cx='32' cy='15' r='3' fill='#a03d3d'/>
+</svg>
