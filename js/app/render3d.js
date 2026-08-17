@@ -27,6 +27,7 @@ class Tweens {
     for (const k of Object.keys(props)) from[k] = obj[k];
     this.list.push({ obj, from, to: props, t0: performance.now(), dur: Math.max(1, durMs), ease, onDone });
   }
+  cancel(obj) { this.list = this.list.filter(t => t.obj !== obj); }
   update(now) {
     for (let i = this.list.length - 1; i >= 0; i--) {
       const t = this.list[i];
@@ -385,7 +386,7 @@ export class Renderer3D {
     mesh.position.set(pos.x, pos.y, pos.z);
     const jitter = (this.boardRng.next() - 0.5) * 0.04;
     mesh.rotation.y = jitter;
-    return { mesh, value: tile.value, baseY: pos.y, lift: 0, opacity: 1, scale: 1, removed: false, shakeX: 0, basePos: pos, jitter };
+    return { mesh, value: tile.value, baseY: pos.y, lift: 0, opacity: 1, scale: 1, removed: false, exiting: false, shakeX: 0, basePos: pos, jitter };
   }
 
   _tilePos(tile) {
@@ -408,13 +409,18 @@ export class Renderer3D {
       const col = state.stacks[tile.stack];
       const stillPresent = col.includes(tile.id);
       const exposed = stillPresent && isExposed(state, tile.id);
-      view.mesh.visible = stillPresent || view.removed; // keep removed visible until animation ends
+      // keep removed tiles visible only while their exit animation runs
+      view.mesh.visible = stillPresent || (view.removed && view.exiting);
 
       if (stillPresent) {
         const pos = this._tilePos(tile);
         if (view.removed) {
-          // restored by undo: reset the removal animation state
+          // restored by undo: reset the removal animation state and drop any
+          // stale exit tweens so they cannot re-hide or move the tile
           view.removed = false;
+          view.exiting = false;
+          this.tweens.cancel(view.mesh.position);
+          this.tweens.cancel(view.mesh.scale);
           view.mesh.scale.setScalar(1);
           view.mesh.position.set(pos.x, pos.y, pos.z);
           view.mesh.visible = true;
@@ -463,13 +469,15 @@ export class Renderer3D {
           const view = this.tileViews.get(id);
           if (!view) continue;
           view.removed = true;
+          view.exiting = true;
           view.mesh.visible = true;
           const p = view.mesh.position;
           this.burst(p.x, p.y + 0.2, p.z, 12);
           if (doTween) {
-            this.tweens.add(view.mesh.position, { y: p.y + 1.4 }, 420, easeOutCubic, () => { view.mesh.visible = false; });
+            this.tweens.add(view.mesh.position, { y: p.y + 1.4 }, 420, easeOutCubic, () => { view.exiting = false; view.mesh.visible = false; });
             this.tweens.add(view.mesh.scale, { x: 0.6, y: 0.6, z: 0.6 }, 420);
           } else {
+            view.exiting = false;
             view.mesh.visible = false;
           }
         }
@@ -555,10 +563,14 @@ export class Renderer3D {
     ray.setFromCamera(ndc, this.camera);
     const meshes = [];
     for (const view of this.tileViews.values()) {
-      if (view.mesh.visible && !view.removed) meshes.push(view.mesh);
+      if (view.mesh.visible) meshes.push(view.mesh);
     }
     const hits = ray.intersectObjects(meshes, false);
-    return hits.length ? hits[0].object.userData.tileId : null;
+    if (!hits.length) return null;
+    // A tile animating off the board still occludes whatever is behind it:
+    // report no pick rather than a tile the player cannot see.
+    const hit = this.tileViews.get(hits[0].object.userData.tileId);
+    return hit && !hit.removed ? hits[0].object.userData.tileId : null;
   }
 
   // project a tile to CSS pixel coords (shared layout model for DOM labels)
