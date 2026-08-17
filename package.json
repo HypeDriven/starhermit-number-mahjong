@@ -1,0 +1,12 @@
+{
+  "name": "number-mahjong",
+  "version": "1.0.0",
+  "description": "Number Mahjong — an observatory-desk number-pair puzzle. Browser game with deterministic rules engine, Three.js presentation, and StarHermit packaging.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js 8080",
+    "test": "node tests/run-tests.mjs",
+    "test:browser": "node tests/browser-test.mjs http://localhost:8080"
+  },
+  "license": "UNLICENSED"
+}

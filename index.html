@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Number Mahjong — an observatory puzzle</title>
+<meta name="description" content="Choose exposed numbered tiles whose values satisfy the round's sum or equality rule. A calm observatory desk puzzle.">
+<link rel="stylesheet" href="css/main.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='4' width='24' height='24' rx='5' fill='%23f3ead8'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='%233b3230' font-family='serif'%3E7%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<a class="skip-link" href="#board-heading">Skip to board</a>
+<div id="app" data-screen="boot">
+
+  <!-- ======================= play field ======================= -->
+  <main id="play-root" aria-label="Game board and status">
+    <div id="hud-top" role="region" aria-label="Round status">
+      <div id="objective-block">
+        <h2 id="board-heading" class="visually-hidden">Board</h2>
+        <div id="objective" aria-live="polite">
+          <span id="rule-label">Make 10</span>
+          <span id="target-dial" aria-hidden="true"></span>
+        </div>
+        <div id="progress-line"><span id="pairs-remaining"></span><span id="moves-left"></span></div>
+      </div>
+      <div id="score-block" aria-live="polite">
+        <span id="score-value">0</span>
+        <span id="chain-indicator" aria-label="chain"></span>
+      </div>
+      <div id="timer-block" hidden>
+        <span id="timer-value" aria-live="off"></span>
+        <div id="timer-bar"><div id="timer-fill"></div></div>
+      </div>
+      <button id="btn-pause" class="icon-btn" aria-label="Pause (Esc)" title="Pause (Esc)">❚❚</button>
+    </div>
+
+    <div id="board-region">
+      <canvas id="gl" aria-hidden="true"></canvas>
+      <!-- Semantic DOM mirror of the board: always present for assistive
+           technology, styled as a full 2D board when enabled. -->
+      <div id="board2d" role="grid" aria-label="Tiles"></div>
+      <div id="compat-message" hidden role="alert">
+        <h2>3D view unavailable</h2>
+        <p>WebGL could not be initialised on this device, so the accessible 2D board is shown instead. Your progress and account state are unaffected.</p>
+      </div>
+      <div id="countdown-overlay" hidden aria-live="assertive"></div>
+    </div>
+
+    <div id="hud-actions" role="toolbar" aria-label="Round actions">
+      <button id="btn-hint" class="action-btn" title="Hint (H)">💡 <span class="btn-label">Hint</span> <span class="count" id="hint-count"></span></button>
+      <button id="btn-reshuffle" class="action-btn" title="Reshuffle (R)">🔀 <span class="btn-label">Shuffle</span> <span class="count" id="reshuffle-count"></span></button>
+      <button id="btn-undo" class="action-btn" title="Undo (U)">↩ <span class="btn-label">Undo</span></button>
+    </div>
+  </main>
+
+  <!-- ======================= screens ======================= -->
+  <div id="screen-root"></div>
+
+  <!-- pause overlay -->
+  <div id="overlay-pause" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="pause-title">
+    <div class="sheet">
+      <h2 id="pause-title">Paused</h2>
+      <div class="pause-grid">
+        <button id="btn-resume" class="primary">Resume</button>
+        <button id="btn-pause-settings">Settings</button>
+        <button id="btn-pause-help">Help</button>
+        <button id="btn-restart-round">Restart round</button>
+        <button id="btn-leave-round" class="danger">Leave round</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- lesson banner -->
+  <div id="lesson-banner" hidden role="status" aria-live="polite">
+    <p id="lesson-text"></p>
+    <button id="lesson-next" class="primary">Got it</button>
+  </div>
+
+  <!-- live regions + toasts -->
+  <div id="live-polite" class="visually-hidden" aria-live="polite"></div>
+  <div id="live-assertive" class="visually-hidden" aria-live="assertive"></div>
+  <div id="toast-stack" aria-hidden="true"></div>
+  <div id="sound-caption" class="visually-hidden" aria-hidden="true"></div>
+</div>
+
+<script type="module" src="js/app/main.js"></script>
+</body>
+</html>
