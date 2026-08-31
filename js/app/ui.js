@@ -41,6 +41,7 @@ export class UI {
     el.className = 'toast' + (isError ? ' error' : '');
     el.textContent = msg;
     stack.appendChild(el);
+    if (!isError) this.app.audio.play('toast');
     setTimeout(() => el.remove(), 2600);
     while (stack.children.length > 3) stack.firstChild.remove();
   }

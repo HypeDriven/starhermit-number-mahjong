@@ -285,9 +285,9 @@ class App {
       let n = 3;
       const step = () => {
         if (this.phase !== 'countdown') return;
-        if (n === 0) { this.ui.countdown('Observe'); this.audio.play('ui'); setTimeout(() => { this.ui.countdown(null); this._activate(); }, 450); return; }
+        if (n === 0) { this.ui.countdown('Observe'); this.audio.play('round-start'); setTimeout(() => { this.ui.countdown(null); this._activate(); }, 450); return; }
         this.ui.countdown(String(n));
-        this.audio.play('tick-urgent');
+        this.audio.play('countdown');
         n--;
         setTimeout(step, 650);
       };
@@ -334,10 +334,10 @@ class App {
     }
     this.state = next;
     recordCommand(this.replay, cmd, next);
-    this._afterCommand(events);
+    this._afterCommand(events, before);
   }
 
-  _afterCommand(events) {
+  _afterCommand(events, before) {
     const st = this.state;
     // presentation
     if (this.renderer) { this.renderer.noteState(st); this.renderer.syncState(st, events); }
@@ -359,6 +359,8 @@ class App {
           break;
         case 'pair': {
           this.audio.play(ev.chain > 1 ? 'chain' : 'pair', { chain: ev.chain });
+          // a deeper tile sliding free under the removed pair
+          if (before && E.exposedTiles(st).some(id => st.tiles[id] && !E.isExposed(before, id))) this.audio.play('expose');
           this.ui.announce(`${ev.values[0]} and ${ev.values[1]} removed, +${ev.gained}. ${E.remainingTiles(st) / 2} pairs left.${st.ruleset.dynamic ? ` New target: ${E.currentTarget(st)}.` : ''}`);
           break;
         }
@@ -433,7 +435,7 @@ class App {
           this.dispatch({ type: 'timeout' });
         } else if (rem < 10500 && Math.floor(rem / 1000) !== this._lastTickSec) {
           this._lastTickSec = Math.floor(rem / 1000);
-          this.audio.play('tick-urgent');
+          this.audio.play('timer-warning');
         }
       }
     }, 200);
@@ -446,7 +448,7 @@ class App {
     clearInterval(this.timerHandle);
     this.clock.pause();
     const won = this.state.status === 'won';
-    this.audio.play(won ? 'win' : 'lose');
+    this.audio.play(won ? 'board-clear' : 'lose');
     this._track('round-end', { kind: this.content.kind, won, reason: this.state.reason });
 
     // settle cosmetics into the exact deterministic end state, then results
@@ -532,6 +534,9 @@ class App {
       newAchievements, boardPlacement: placement, par: this.content.par,
     });
     this.ui.announce(`${st.status === 'won' ? 'Round complete' : 'Round over'}. Total score ${breakdown.total}.`, true);
+    if (won) this.audio.play('win-stinger');
+    if (stars != null && won) this.audio.play('star-rating');
+    if (placement === 0) this.audio.play('new-record');
     if (newAchievements.length) this.audio.play('achievement');
   }
 
@@ -649,6 +654,7 @@ class App {
     this.phase = 'active';
     this.clock.resume();
     this.audio.resume();
+    this.audio.play('resume');
     this.ui.setPaused(false);
     this.ui.announce('Round resumed. ' + this.ui.boardSummary(this.state));
   }
@@ -725,7 +731,10 @@ class App {
       dragging = false;
     });
     canvas.addEventListener('pointermove', (e) => {
-      if (downPos && Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 14) dragging = true;
+      if (downPos && Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 14) {
+        if (!dragging) this.audio.play('drag-start');
+        dragging = true;
+      }
       // hover preview: highlight legal partners of the hovered tile
       if (!downPos && this.renderer && this.phase === 'active') {
         const id = this.renderer.pick(e.clientX, e.clientY);
@@ -735,6 +744,7 @@ class App {
     canvas.addEventListener('pointerup', (e) => {
       const wasDrag = dragging;
       downPos = null;
+      if (wasDrag) this.audio.play('drop');
       if (wasDrag || !this.renderer) return;
       if (performance.now() - downAt > 600) return; // long press ≠ tap
       const id = this.renderer.pick(e.clientX, e.clientY);
@@ -756,8 +766,8 @@ class App {
 
     // pause overlay
     $('#btn-resume').addEventListener('click', () => this.resume());
-    $('#btn-pause-settings').addEventListener('click', () => { this._settingsReturn = 'pause'; this.ui.setPaused(false); this.ui.showSettings(this.settings); this.setScreenForSettings(); });
-    $('#btn-pause-help').addEventListener('click', () => { this._helpReturn = 'pause'; this.ui.setPaused(false); this.ui.showHelp(this.settings.bindings || {}); this.setScreenForOverlay('help'); });
+    $('#btn-pause-settings').addEventListener('click', () => { this.audio.play('modal-open'); this._settingsReturn = 'pause'; this.ui.setPaused(false); this.ui.showSettings(this.settings); this.setScreenForSettings(); });
+    $('#btn-pause-help').addEventListener('click', () => { this.audio.play('modal-open'); this._helpReturn = 'pause'; this.ui.setPaused(false); this.ui.showHelp(this.settings.bindings || {}); this.setScreenForOverlay('help'); });
     $('#btn-restart-round').addEventListener('click', () => { this.ui.setPaused(false); this.restartRound(); });
     $('#btn-leave-round').addEventListener('click', () => this.leaveRound());
 
@@ -772,6 +782,25 @@ class App {
     const startAudio = () => { this.audio.start(); window.removeEventListener('pointerdown', startAudio); window.removeEventListener('keydown', startAudio); };
     window.addEventListener('pointerdown', startAudio);
     window.addEventListener('keydown', startAudio);
+
+    // hover tick on interactive elements (throttled)
+    let lastHover = 0;
+    this.ui.root.addEventListener('pointerover', (e) => {
+      if (!e.target.closest('button, input, select')) return;
+      const now = performance.now();
+      if (now - lastHover < 120) return;
+      lastHover = now;
+      this.audio.play('hover');
+    });
+
+    // scroll tick on list scrolling (throttled; capture for nested scrollers)
+    let lastScroll = 0;
+    this.ui.root.addEventListener('scroll', () => {
+      const now = performance.now();
+      if (now - lastScroll < 150) return;
+      lastScroll = now;
+      this.audio.play('scroll-tick');
+    }, true);
   }
 
   setScreenForSettings() { this.root.dataset.screen = 'settings'; }
@@ -781,8 +810,15 @@ class App {
     const el = e.target.closest('[data-act], [data-stage], [data-practice], [data-challenge], [data-lesson], [data-remap]');
     if (!el) return;
     this.audio.start();
-    this.audio.play('ui');
     const act = el.dataset.act;
+    let sfx = 'ui';
+    if (act === 'back') {
+      sfx = this._settingsReturn === 'pause' || this._helpReturn === 'pause' ? 'modal-close'
+        : this.root.dataset.screen === 'settings' ? 'settings-saved' : 'back';
+    } else if (act === 'begin') {
+      sfx = 'confirm';
+    }
+    this.audio.play(sfx);
     if (el.dataset.stage) {
       const st = JOURNEY.find(j => j.id === el.dataset.stage);
       if (st) this.openModeSetup({ ...st });
@@ -875,6 +911,7 @@ class App {
     this.settings[key] = val;
     store.saveSettings(this.settings);
     this._track('settings-change', { key });
+    if (e.type === 'change') this.audio.play(e.target.type === 'range' ? 'slider' : 'toggle');
     // apply live
     if (['music', 'effects', 'ambience'].includes(key)) this.audio.setVolume(key, val);
     if (key === 'muted') this.audio.setMuted(val);

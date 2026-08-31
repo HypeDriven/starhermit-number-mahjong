@@ -28,7 +28,22 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
+  '.opus': 'audio/ogg',
 };
+
+// ---------------------------------------------------------------------------
+// rate limiting (per-IP token bucket, one-minute windows)
+// ---------------------------------------------------------------------------
+
+const buckets = new Map();
+function rateLimited(ip, cost = 1, perMinute = 60) {
+  const now = Date.now();
+  let b = buckets.get(ip);
+  if (!b || now - b.windowStart > 60000) { b = { windowStart: now, used: 0 }; buckets.set(ip, b); }
+  if (b.used + cost > perMinute) return true;
+  b.used += cost;
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // score board persistence (server-side, per board key)
@@ -50,6 +65,7 @@ function verifySubmission(body) {
   const { entry, replay } = body || {};
   if (!entry || !replay) return { ok: false, error: 'missing entry or replay' };
   if (replay.contentVersion !== CONTENT_VERSION) return { ok: false, error: 'stale content version' };
+  if (typeof replay.contentId !== 'string') return { ok: false, error: 'bad content id' };
   let content = null;
   if (replay.contentId.startsWith('daily-')) {
     const iso = replay.contentId.slice(6);
@@ -84,12 +100,17 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' });
     res.end(typeof body === 'string' ? body : JSON.stringify(body));
   };
+  const ip = req.socket.remoteAddress || 'unknown';
 
   // ---- API ----
+  if (url.pathname.startsWith('/api/') && rateLimited(ip)) {
+    return send(429, { error: 'rate limited' });
+  }
   if (url.pathname === '/api/v1/time') {
     return send(200, { utcMs: Date.now() });
   }
   if (url.pathname === '/api/v1/scores' && req.method === 'POST') {
+    if (rateLimited(ip, 5)) return send(429, { error: 'rate limited' });
     let raw = '';
     for await (const chunk of req) {
       raw += chunk;
@@ -98,14 +119,18 @@ const server = http.createServer(async (req, res) => {
     let body;
     try { body = JSON.parse(raw); } catch { return send(400, { error: 'bad json' }); }
     if (typeof body.board !== 'string' || body.board.length > 128) return send(400, { error: 'bad board key' });
-    const verdict = verifySubmission(body);
+    let verdict;
+    try {
+      verdict = verifySubmission(body);
+    } catch { return send(422, { error: 'submission could not be verified' }); }
     if (!verdict.ok) return send(422, { error: verdict.error });
     const entries = await loadBoard(body.board);
     const entry = { ...body.entry, verified: true, receivedAt: Date.now() };
     entries.push(entry);
     entries.sort((a, b) => b.score - a.score || a.invalidCount - b.invalidCount || a.elapsedMs - b.elapsedMs || String(a.sessionId).localeCompare(String(b.sessionId)));
-    await saveBoard(body.board, entries.slice(0, 100));
-    return send(200, { ok: true, rank: entries.indexOf(entry) });
+    const kept = entries.slice(0, 100);
+    await saveBoard(body.board, kept);
+    return send(200, { ok: true, rank: kept.indexOf(entry) + 1 });
   }
   if (url.pathname === '/api/v1/scores' && req.method === 'GET') {
     const key = url.searchParams.get('board') || '';
@@ -116,10 +141,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ---- static ----
-  let rel = decodeURIComponent(url.pathname);
+  let rel;
+  try { rel = decodeURIComponent(url.pathname); } catch { return send(400, 'bad path', 'text/plain'); }
   if (rel === '/') rel = '/index.html';
   const file = path.normalize(path.join(ROOT, rel));
-  if (!file.startsWith(ROOT)) return send(403, 'forbidden', 'text/plain');
+  if (file !== ROOT && !file.startsWith(ROOT + path.sep)) return send(403, 'forbidden', 'text/plain');
   // keep source maps, secrets, and server data out of the distribution
   if (file.includes('.server-data') || file.endsWith('.map')) return send(404, 'not found', 'text/plain');
   try {

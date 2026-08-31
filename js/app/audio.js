@@ -4,6 +4,48 @@
 
 import { makeStream } from '../rules/rng.js';
 
+// Recorded one-shot samples (sfx/, see sfx/manifest.md) keyed by logical event.
+// When a sample is unavailable (not yet fetched, decode failed) the procedural
+// voice in play() is used instead.
+const SAMPLE_FILES = {
+  select: 'tile-select',
+  deselect: 'tile-deselect',
+  expose: 'tile-expose',
+  pair: 'pair-match',
+  'chain-low': 'combo-chain-low',
+  'chain-mid': 'combo-chain-mid',
+  'chain-high': 'combo-chain-high',
+  hint: 'hint-glow',
+  reshuffle: 'shuffle',
+  undo: 'undo-move',
+  'board-clear': 'board-clear',
+  'win-stinger': 'win-stinger',
+  lose: 'lose-stinger',
+  'star-rating': 'star-rating',
+  'new-record': 'new-record',
+  pause: 'ui-pause',
+  resume: 'ui-resume',
+  countdown: 'countdown-tick',
+  'timer-warning': 'timer-warning',
+  'round-start': 'round-start',
+  ui: 'ui-click',
+  hover: 'ui-hover',
+  confirm: 'ui-confirm',
+  back: 'ui-back',
+  toggle: 'ui-toggle',
+  slider: 'ui-slider-drag',
+  'settings-saved': 'ui-settings-saved',
+  'modal-open': 'ui-modal-open',
+  'modal-close': 'ui-modal-close',
+  'scroll-tick': 'ui-scroll-tick',
+  toast: 'ui-toast-notify',
+  achievement: 'ui-success',
+  invalid: 'ui-error',
+  'drag-start': 'tile-drag-start',
+  drop: 'tile-drop',
+  'tab-switch': 'ui-tab-switch',
+};
+
 export class AudioEngine {
   constructor(settings) {
     this.settings = settings;
@@ -35,6 +77,36 @@ export class AudioEngine {
     this.started = true;
     this._startAmbience();
     this._startMusic();
+  }
+
+  // --- recorded samples ------------------------------------------------------
+
+  // Samples are fetched lazily on first use (after the user-gesture unlock in
+  // start()) and cached. While a sample is in flight, or if it fails to load,
+  // play() falls through to the procedural voice for that event.
+  _loadSample(name) {
+    this.samples = this.samples || {};
+    this._sampleLoads = this._sampleLoads || {};
+    if (name in this.samples || this._sampleLoads[name]) return this._sampleLoads[name];
+    this._sampleLoads[name] = (async () => {
+      try {
+        const res = await fetch(new URL(`../../sfx/${name}.opus`, import.meta.url));
+        if (res.ok) this.samples[name] = await this.ctx.decodeAudioData(await res.arrayBuffer());
+        else this.samples[name] = null; // missing file: keep the procedural voice
+      } catch { this.samples[name] = null; /* decode/fetch failed: procedural fallback */ }
+      delete this._sampleLoads[name];
+    })();
+    return this._sampleLoads[name];
+  }
+
+  _sample(name) {
+    const buf = this.samples && this.samples[name];
+    if (!buf || this.ctx.state !== 'running') return false;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(this.buses.effects);
+    src.start();
+    return true;
   }
 
   setVolume(bus, v) {
@@ -92,7 +164,18 @@ export class AudioEngine {
   // --- event map (input ack < legal move < combo/goal < round completion) ---
 
   play(event, opts = {}) {
-    if (!this.started || this.settings.muted) { this._caption(captionFor(event)); return; }
+    if (!this.started || this.settings.muted) { this._caption(captionFor(event, opts)); return; }
+    const sampleKey = event === 'chain'
+      ? (opts.chain >= 6 ? 'chain-high' : opts.chain >= 4 ? 'chain-mid' : 'chain-low')
+      : event;
+    const sampleName = SAMPLE_FILES[sampleKey];
+    if (sampleName) {
+      if (this._sample(sampleName)) {
+        this._caption(captionFor(event, opts));
+        return;
+      }
+      this._loadSample(sampleName); // lazy fetch; synthesis below covers the gap
+    }
     const v = 1 + (this.rng.next() - 0.5) * 0.06; // seeded pitch variant
     switch (event) {
       case 'select':
@@ -104,6 +187,16 @@ export class AudioEngine {
       case 'invalid':
         this._blip(140, 0.16, { type: 'square', gain: 0.07, slide: -40 });
         this._noise(0.08, { gain: 0.05, low: 100, high: 500 });
+        break;
+      case 'drag-start':
+        this._noise(0.09, { gain: 0.06, low: 300, high: 1200 });
+        break;
+      case 'drop':
+        this._blip(300 * v, 0.08, { type: 'triangle', gain: 0.1 });
+        this._noise(0.05, { gain: 0.06, low: 200, high: 900 });
+        break;
+      case 'tab-switch':
+        this._blip(540 * v, 0.05, { type: 'triangle', gain: 0.06 });
         break;
       case 'pair': {
         const base = 520 * v;
@@ -216,13 +309,25 @@ function captionFor(event, opts = {}) {
     case 'select': return 'tile selected';
     case 'deselect': return 'selection cleared';
     case 'invalid': return 'not a valid pair';
+    case 'drag-start': return 'drag started';
+    case 'drop': return 'dropped';
+    case 'tab-switch': return 'tab switched';
     case 'pair': return 'pair removed';
     case 'chain': return `chain ×${opts.chain || 1}`;
     case 'hint': return 'hint shown';
     case 'reshuffle': return 'tiles reshuffled';
     case 'undo': return 'move undone';
     case 'win': return 'round complete';
+    case 'board-clear': return 'board cleared';
+    case 'win-stinger': return 'stage complete';
     case 'lose': return 'round over';
+    case 'star-rating': return 'star rating';
+    case 'new-record': return 'new record';
+    case 'resume': return 'resumed';
+    case 'timer-warning': return 'time running out';
+    case 'round-start': return 'round begins';
+    case 'expose': return 'deeper tile exposed';
+    case 'settings-saved': return 'settings saved';
     case 'achievement': return 'achievement unlocked';
     default: return '';
   }

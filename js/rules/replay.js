@@ -65,6 +65,10 @@ export function verifyReplay(envelope, content, board) {
   if (envelope.contentVersion !== (content.contentVersion || CONTENT_VERSION)) errors.push('content version mismatch');
   let state = createGame(content, board);
   if (stateHash(state) !== envelope.initialHash) errors.push('initial hash mismatch');
+  if (!Array.isArray(envelope.checkpoints) || !Array.isArray(envelope.commands)) {
+    errors.push('malformed envelope: missing checkpoints or commands');
+    return { ok: false, errors, finalState: state };
+  }
   const checkpoints = new Map(envelope.checkpoints.map(c => [c.at, c.hash]));
   const seen = new Set();
   for (let i = 0; i < envelope.commands.length; i++) {
