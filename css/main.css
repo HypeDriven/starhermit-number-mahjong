@@ -225,6 +225,7 @@ button:focus-visible, [tabindex]:focus-visible, a:focus-visible {
 .menu-stack button { font-size: 1.1rem; padding: 14px 20px; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .menu-stack button small { color: var(--muted); font-weight: 400; }
 .menu-stack button.primary { justify-content: center; }
+.menu-stack .title-next { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 0; max-width: none; }
 
 .title-hero { text-align: center; padding-top: 4vh; }
 .title-hero .mark { font-size: clamp(2.6rem, 7vw, 4.2rem); font-family: var(--font); letter-spacing: 0.04em; margin: 0; }

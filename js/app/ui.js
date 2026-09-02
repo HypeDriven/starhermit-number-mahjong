@@ -80,7 +80,8 @@ export class UI {
       </div>
       ${resumeInfo ? `<div class="menu-stack"><button data-act="resume" data-content="${this.esc(resumeInfo.contentId)}" style="border-color:var(--accent)">↻ Resume interrupted round <small>${resumeInfo.remaining} tiles left · ${this.fmtMs(resumeInfo.elapsedMs)} in</small></button></div>` : ''}
       <div class="menu-stack" role="menu">
-        <button class="primary" data-act="play" role="menuitem">▶ ${next ? `Continue Journey — ${this.esc(next.name)}` : 'Play'}</button>
+        ${next ? `<p class="meta title-next">Continue Journey — ${this.esc(next.name)}</p>` : ''}
+        <button class="primary" data-act="play" role="menuitem">Play</button>
         <button data-act="daily" role="menuitem">Daily Challenge <small>${dailyDone ? 'completed today ✓' : this.esc(dailyDate)}</small></button>
         <button data-act="journey" role="menuitem">Journey <small>${Object.keys(journeyDone).length} / ${JOURNEY.length} stages</small></button>
         <button data-act="practice" role="menuitem">Practice <small>unranked, undo allowed</small></button>
@@ -145,7 +146,7 @@ export class UI {
         <p class="meta">Seed <code>${this.esc(String(content.seed))}</code> · content v${content.contentVersion}</p>
       </div>
       <div class="menu-stack">
-        <button class="primary" data-act="begin">Begin round</button>
+        <button class="primary" data-act="begin">Start round</button>
         ${opts.extraButtons || ''}
         <button data-act="back">Back</button>
       </div>
