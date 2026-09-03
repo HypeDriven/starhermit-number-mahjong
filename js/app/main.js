@@ -523,7 +523,9 @@ class App {
       const boardKey = this._boardKey();
       placement = store.submitBoardEntry(boardKey, entry);
       if (this.content.kind === 'journey' && won) store.submitBoardEntry('journey.all', entry, 50);
-      if (this.content.ranked && host.online && !this.settings.timingAssist) this._submitScore(envelope, entry);
+      // The platform guarantees only GET /api/v1/time; every other route 404s
+      // in production, so ranked submission stays on the local board rather
+      // than POSTing to a route that is not guaranteed to exist.
     }
 
     const newAchievements = this._checkAchievements();
@@ -554,21 +556,6 @@ class App {
     if (this.content.kind === 'challenge') return 'challenge.' + this.content.id;
     if (this.content.kind === 'journey') return 'journey.' + this.content.id;
     return 'casual.' + this.content.kind;
-  }
-
-  async _submitScore(envelope, entry) {
-    try {
-      const res = await fetch(`${host.apiBase}/scores`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ board: this._boardKey(), entry, replay: envelope }),
-        signal: AbortSignal.timeout(4000),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (data.error) this.ui.toast(`Score not accepted: ${data.error}`, true);
-      }
-    } catch { /* offline: local board stands */ }
   }
 
   _checkAchievements() {
