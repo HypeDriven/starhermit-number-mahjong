@@ -619,6 +619,14 @@ export class Renderer3D {
     this.raf = requestAnimationFrame(this._loop);
     if (document.hidden) return; // background tab: rendering paused
     if (this.contextLost) return;
+    // The play field is visibility:hidden behind menu screens (and when the
+    // 2D board replaces the canvas). Rendering then is invisible work that
+    // starves the main thread — worst on software-GL desktop, where it can
+    // block menu clicks entirely. Skip until the canvas is shown again.
+    if (this.canvas.checkVisibility && !this.canvas.checkVisibility({ checkVisibilityCSS: true })) {
+      this._lastT = t;
+      return;
+    }
     const dt = Math.min(0.05, (t - this._lastT) / 1000 || 0.016);
     this._lastT = t;
     this.tweens.update(t);
