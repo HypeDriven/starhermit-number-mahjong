@@ -10,17 +10,21 @@ alongside the game's own unit tests, its headless-Chrome browser suite, and live
 | `npm test` (`node tests/run-tests.mjs`) | 78/78 pass — `ALL TESTS PASSED` |
 | `node --check` on all modules (`js/**/*.js`, `server.js`, `tests/*.mjs`) | clean |
 | `tests/browser-test.mjs` (headless Chrome, served on :39407) | **PASS** — 29/29 assertions, `BROWSER TESTS PASSED`, 0 console errors |
-| `tests/e2e.mjs` | not present (`tests/browser-test.mjs` is the equivalent and was run) |
+| `tests/e2e.mjs` (desktop + mobile Playwright) | **PASS** — 20/20, `E2E PASSED (desktop + mobile)`, exit 0 |
 | Corrupt-`localStorage` sweep (8 corruptions × 2 keys, reload each time) | PASS — no page errors, game still renders every time |
 | Full-`localStorage` (quota-exceeded) play-through | PASS — no page errors during boot or a played round |
 | Rapid-input + resize stress (90 key presses, 40 clicks, 5 viewport changes, 8 pause toggles) | PASS — 0 console errors |
 
-## Confirmed defects
+## Resolved (fixed 2026-08-26, re-verified against current source)
 
-All six were **fixed on 2026-08-26** (see each item for the fix note). The three crash defects were
+All six confirmed defects were **fixed on 2026-08-26** and re-verified against the current source
+(see each item for the fix note and the re-verification). The three crash defects were
 originally reproduced against the running server on port 39407 and produced a stack trace
 in the server log each time; after the fix they return 4xx and the process stays alive (re-verified
-on 39407: defect 1 → 422, defect 2 → 400, defect 3 → 422, server still serving afterwards).
+on 39417 this pass: defect 1 → 422, defect 2 → 400, defect 3 → 422, server still serving afterwards).
+**RESOLVED — no code change required this pass; fixes already present and confirmed live.**
+
+**Confirmed defects remaining: none.**
 
 ### 1. One malformed score submission kills the server process
 
@@ -170,9 +174,9 @@ on 39407: defect 1 → 422, defect 2 → 400, defect 3 → 422, server still ser
 - **Why unconfirmed:** no such sibling exists in this checkout and a live raw
   `GET /../fleet-signals/spec.md` correctly returned 404. Proving the escape would require creating a
   prefix-sharing directory in `~/games`, which was out of scope.
-- **Fixed anyway (2026-08-26):** the check is now a real path boundary —
-  `if (file !== ROOT && !file.startsWith(ROOT + path.sep))` — so a prefix-sharing sibling directory
-  can never be served.
+- **RESOLVED (fixed 2026-08-26):** the check is now a real path boundary —
+  `server.js:148` — `if (file !== ROOT && !file.startsWith(ROOT + path.sep))` — so a prefix-sharing
+  sibling directory can never be served. Verified present in current source.
 
 ### 3. No `Cache-Control` on any static response
 
