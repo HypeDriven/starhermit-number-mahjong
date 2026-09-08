@@ -302,6 +302,10 @@ class App {
     this.clock.start();
     this._startTimerLoop();
     this.announceObjective();
+    // the countdown runs on timers, so it can complete while the tab is
+    // hidden (the visibility handler only pauses an 'active' round) — never
+    // let the authoritative clock run unseen
+    if (document.hidden) this.pause('background');
   }
 
   announceObjective() {
@@ -453,7 +457,9 @@ class App {
 
     // settle cosmetics into the exact deterministic end state, then results
     const delay = this.settings.reducedMotion ? 60 : 750;
+    const finishedState = this.state;
     setTimeout(() => {
+      if (this.phase !== 'resolving' || this.state !== finishedState) return;
       if (this.renderer) this.renderer.settleImmediately();
       this._showResults();
     }, delay);
@@ -495,7 +501,9 @@ class App {
       this.progress.lessons[this.content.id] = { completed: true };
     }
     if (this.content.kind === 'daily') {
-      const { iso } = todayDailyInfo();
+      // the round's own day, not "today": a round crossing UTC midnight must
+      // still land on the board and history of the seed that was played
+      const iso = this.content.id.slice('daily-'.length);
       const prev = this.progress.dailyHistory[iso];
       this.progress.dailyHistory[iso] = {
         score: Math.max(breakdown.total, prev?.score || 0),
@@ -552,7 +560,7 @@ class App {
   }
 
   _boardKey() {
-    if (this.content.kind === 'daily') return 'daily.' + todayDailyInfo().iso;
+    if (this.content.kind === 'daily') return 'daily.' + this.content.id.slice('daily-'.length);
     if (this.content.kind === 'challenge') return 'challenge.' + this.content.id;
     if (this.content.kind === 'journey') return 'journey.' + this.content.id;
     return 'casual.' + this.content.kind;

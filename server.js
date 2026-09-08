@@ -16,7 +16,7 @@ import { dailyContent, challengeContent, JOURNEY, prepareContent, CONTENT_VERSIO
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.argv[2] || process.env.PORT || 8080);
-const DATA_DIR = path.join(ROOT, '.server-data');
+const DATA_DIR = process.env.NM_DATA_DIR || path.join(ROOT, '.server-data');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -158,5 +158,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Number Mahjong listening on http://localhost:${PORT}`);
+  console.log(`Number Mahjong listening on http://localhost:${server.address().port}`);
 });

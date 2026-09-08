@@ -6,11 +6,12 @@
   "scripts": {
     "start": "node server.js 8080",
     "test": "node tests/run-tests.mjs",
-    "test:browser": "node tests/browser-test.mjs http://localhost:8080",
+    "test:browser": "node tests/run-browser.mjs",
     "test:e2e": "node tests/e2e.mjs"
   },
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE.md",
   "devDependencies": {
-    "playwright-core": "^1.62.1"
+    "playwright-core": "^1.62.1",
+    "puppeteer-core": "^25.10.0"
   }
 }

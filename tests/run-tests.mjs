@@ -145,6 +145,26 @@ section('engine: hints, reshuffle, selection toggle');
 }
 
 // ---------------------------------------------------------------------------
+section('engine: unlimited (Infinity) tools survive cloning and serialization');
+{
+  const content = sumContent({ tools: { hints: Infinity, reshuffles: 1, undo: true } });
+  const board = fixedBoard([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }], [[4], [6], [3], [7]]);
+  let state = E.createGame(content, board);
+  ok(state.tools.hints === Infinity, 'unlimited hints at construction');
+  // any successful command clones the state through JSON
+  state = E.applyCommand(state, { type: 'select', tileId: 0, atMs: 0 }).state;
+  ok(state.tools.hints === Infinity, 'unlimited hints survive command cloning');
+  let r = E.applyCommand(state, { type: 'hint', atMs: 1 });
+  ok(r.events[0].type === 'hint' && r.state.tools.hints === Infinity, 'unlimited hints stay usable and unlimited');
+  // undo snapshots
+  r = E.applyCommand(r.state, { type: 'undo', atMs: 2 });
+  ok(r.events[0].type === 'undo' && r.state.tools.hints === Infinity, 'unlimited hints survive undo restore');
+  // session persistence
+  const restored = E.deserialize(E.serialize(r.state));
+  ok(restored.tools.hints === Infinity, 'unlimited hints survive serialize/deserialize');
+}
+
+// ---------------------------------------------------------------------------
 section('engine: no-moves terminal + reshuffle escape');
 {
   // Board where only 5 & 5 are exposed with target 10? use match rule, distinct values
@@ -440,6 +460,27 @@ section('tie-break ordering');
 }
 
 // ---------------------------------------------------------------------------
+section('storage quota fallback');
+{
+  const values = new Map();
+  let denied = false;
+  globalThis.localStorage = {
+    getItem: k => values.get(k) ?? null,
+    setItem(k, v) { if (denied) throw new Error('Quota exceeded'); values.set(k, v); },
+    removeItem(k) { if (denied) throw new Error('Storage denied'); values.delete(k); },
+  };
+  const { store } = await import('../js/app/storage.js?quota-regression');
+  store.saveSettings({ textScale: 1 });
+  denied = true;
+  store.saveSettings({ textScale: 2 });
+  ok(store.loadSettings().textScale === 2, 'fallback supersedes stale persistent settings');
+  store.saveSessionSnapshot('quota', { tick: 7 });
+  ok(store.loadSessionSnapshot('quota').tick === 7, 'fallback session is readable');
+  ok(store.listSessionSnapshots().some(s => s.contentId === 'quota'), 'fallback session is listed');
+  store.clearSessionSnapshot('quota');
+  ok(store.loadSessionSnapshot('quota') === null, 'fallback deletion survives storage denial');
+  delete globalThis.localStorage;
+}
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.error('FAILURES:\n' + failures.map(f => ' - ' + f).join('\n')); process.exit(1); }
 console.log('ALL TESTS PASSED');

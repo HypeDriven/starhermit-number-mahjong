@@ -47,9 +47,20 @@ function available() {
 const memoryFallback = new Map();
 const hasLocal = typeof localStorage !== 'undefined' && available();
 
-function getItem(k) { return hasLocal ? localStorage.getItem(k) : (memoryFallback.get(k) ?? null); }
-function setItem(k, v) { if (hasLocal) localStorage.setItem(k, v); else memoryFallback.set(k, v); }
-function removeItem(k) { if (hasLocal) localStorage.removeItem(k); else memoryFallback.delete(k); }
+function getItem(k) {
+  if (memoryFallback.has(k)) return memoryFallback.get(k);
+  try { return hasLocal ? localStorage.getItem(k) : null; } catch { return null; }
+}
+function setItem(k, v) {
+  if (hasLocal) {
+    try { localStorage.setItem(k, v); memoryFallback.delete(k); return; } catch { /* quota or denied: keep the session alive on the memory fallback */ }
+  }
+  memoryFallback.set(k, v);
+}
+function removeItem(k) {
+  memoryFallback.set(k, null);
+  try { if (hasLocal) localStorage.removeItem(k); } catch { /* retain the deletion in memory */ }
+}
 
 // ---------------------------------------------------------------------------
 
@@ -110,7 +121,9 @@ export const store = {
 
   listSessionSnapshots() {
     const out = [];
-    const keys = hasLocal ? Object.keys(localStorage) : [...memoryFallback.keys()];
+    let localKeys = [];
+    try { if (hasLocal) localKeys = Object.keys(localStorage); } catch { /* storage denied */ }
+    const keys = [...new Set([...localKeys, ...memoryFallback.keys()])];
     for (const k of keys) {
       if (k.startsWith(PREFIX + 'session.')) {
         const v = unpack(getItem(k));

@@ -196,14 +196,22 @@ export function score(state) {
 // command validation + application
 // ---------------------------------------------------------------------------
 
+// JSON cannot represent Infinity (unlimited tool counts); tag it on the way
+// out and restore it on the way back so clones, undo snapshots, and saved
+// sessions keep unlimited tools unlimited.
+function jsonReplacer(key, value) { return value === Infinity ? { __infinity: 1 } : value; }
+function jsonReviver(key, value) {
+  return value && typeof value === 'object' && value.__infinity === 1 ? Infinity : value;
+}
+
 function cloneState(state) {
-  const copy = JSON.parse(JSON.stringify({ ...state, history: [] }));
+  const copy = JSON.parse(JSON.stringify({ ...state, history: [] }, jsonReplacer), jsonReviver);
   copy.history = state.history;
   return copy;
 }
 
 function snapshotForUndo(state) {
-  return JSON.stringify({ ...state, history: [] });
+  return JSON.stringify({ ...state, history: [] }, jsonReplacer);
 }
 
 export function validateCommand(state, cmd) {
@@ -363,7 +371,7 @@ export function applyCommand(state, cmd) {
       break;
     }
     case 'undo': {
-      const restored = JSON.parse(state.history[state.history.length - 1]);
+      const restored = JSON.parse(state.history[state.history.length - 1], jsonReviver);
       restored.history = state.history.slice(0, -1);
       restored.undoCount = state.undoCount + 1;
       restored.chain = 0;
@@ -527,7 +535,7 @@ export function makePairValues(ruleset, target, rng) {
 // ---------------------------------------------------------------------------
 
 export function serialize(state) {
-  return JSON.stringify({ ...state, history: state.history });
+  return JSON.stringify({ ...state, history: state.history }, jsonReplacer);
 }
 
 export function migrate(data) {
@@ -539,7 +547,7 @@ export function migrate(data) {
 }
 
 export function deserialize(json) {
-  const data = typeof json === 'string' ? JSON.parse(json) : json;
+  const data = typeof json === 'string' ? JSON.parse(json, jsonReviver) : json;
   return migrate(data);
 }
 
