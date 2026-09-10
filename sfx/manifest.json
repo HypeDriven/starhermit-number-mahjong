@@ -1,0 +1,224 @@
+[
+  {
+    "name": "ui-click",
+    "seconds": 0.8,
+    "prompt": "Short smooth ceramic button click",
+    "event": "ui"
+  },
+  {
+    "name": "ui-hover",
+    "seconds": 0.8,
+    "prompt": "Very short soft ceramic tick",
+    "event": "hover"
+  },
+  {
+    "name": "ui-confirm",
+    "seconds": 0.8,
+    "prompt": "Calm two-note soft chime",
+    "event": "confirm"
+  },
+  {
+    "name": "ui-back",
+    "seconds": 0.8,
+    "prompt": "Soft descending mellow tone",
+    "event": "back"
+  },
+  {
+    "name": "ui-error",
+    "seconds": 0.8,
+    "prompt": "Muted short double ceramic clack",
+    "event": "invalid"
+  },
+  {
+    "name": "ui-success",
+    "seconds": 1.6,
+    "prompt": "Gentle ascending three-note chime with warm shimmer",
+    "event": "achievement"
+  },
+  {
+    "name": "ui-modal-open",
+    "seconds": 1.0,
+    "prompt": "Soft airy whoosh with gentle chime",
+    "event": "modal-open"
+  },
+  {
+    "name": "ui-toggle",
+    "seconds": 0.8,
+    "prompt": "Small ceramic toggle click",
+    "event": "toggle"
+  },
+  {
+    "name": "tile-select",
+    "seconds": 0.8,
+    "prompt": "Single ivory tile lifted off wooden desk, soft ceramic click",
+    "event": "select"
+  },
+  {
+    "name": "pair-match",
+    "seconds": 0.8,
+    "prompt": "Two ivory tiles tapped together, bright ceramic clack with gentle chime",
+    "event": "pair"
+  },
+  {
+    "name": "shuffle",
+    "seconds": 1.6,
+    "prompt": "Many ceramic tiles shuffled on wooden table, soft clattering wash",
+    "event": "reshuffle"
+  },
+  {
+    "name": "board-clear",
+    "seconds": 2.6,
+    "prompt": "Calm warm gong swell with soft chime tail",
+    "event": "board-clear"
+  },
+  {
+    "name": "ui-tab-switch",
+    "seconds": 0.8,
+    "prompt": "Small ceramic tab flipping over with a dry tick on wood",
+    "event": "tab-switch"
+  },
+  {
+    "name": "ui-scroll-tick",
+    "seconds": 0.8,
+    "prompt": "Single soft notched tick of a wooden scroll wheel",
+    "event": "scroll-tick"
+  },
+  {
+    "name": "ui-slider-drag",
+    "seconds": 0.8,
+    "prompt": "Ceramic knob sliding smoothly along a short brass rail",
+    "event": "slider"
+  },
+  {
+    "name": "ui-modal-close",
+    "seconds": 1.0,
+    "prompt": "Soft airy whoosh settling downward with a faint ceramic tap",
+    "event": "modal-close"
+  },
+  {
+    "name": "ui-toast-notify",
+    "seconds": 0.8,
+    "prompt": "Gentle rounded pop of a small ceramic bell tapped once",
+    "event": "toast"
+  },
+  {
+    "name": "ui-pause",
+    "seconds": 0.8,
+    "prompt": "Heavy wooden drawer closing softly with a felt-dampened thud",
+    "event": "pause"
+  },
+  {
+    "name": "ui-resume",
+    "seconds": 0.8,
+    "prompt": "Light bright ceramic tick with a tiny upward chirp",
+    "event": "resume"
+  },
+  {
+    "name": "countdown-tick",
+    "seconds": 0.8,
+    "prompt": "Single precise tick of a small brass observatory clock",
+    "event": "countdown"
+  },
+  {
+    "name": "timer-warning",
+    "seconds": 1.2,
+    "prompt": "Small brass hand-bell struck once, urgent but restrained",
+    "event": "timer-warning"
+  },
+  {
+    "name": "ui-settings-saved",
+    "seconds": 0.8,
+    "prompt": "Rubber stamp pressed onto thick paper with a soft thump",
+    "event": "settings-saved"
+  },
+  {
+    "name": "tile-deselect",
+    "seconds": 0.8,
+    "prompt": "Ivory tile set back down on the wooden desk with a soft low clack",
+    "event": "deselect"
+  },
+  {
+    "name": "tile-drag-start",
+    "seconds": 0.8,
+    "prompt": "Ivory tile beginning to slide across polished wood, short smooth scrape",
+    "event": "drag-start"
+  },
+  {
+    "name": "tile-drop",
+    "seconds": 0.8,
+    "prompt": "Ivory tile placed into a shallow wooden recess with a snug soft knock",
+    "event": "drop"
+  },
+  {
+    "name": "tile-expose",
+    "seconds": 0.8,
+    "prompt": "Ceramic tile sliding aside on wood revealing the tile beneath with a soft tick",
+    "event": "expose"
+  },
+  {
+    "name": "hint-glow",
+    "seconds": 1.4,
+    "prompt": "Soft shimmering glass-chime glimmer rising gently, like starlight in a lens",
+    "event": "hint"
+  },
+  {
+    "name": "undo-move",
+    "seconds": 1.0,
+    "prompt": "Ceramic tile sliding backward across wood with a descending scrape and settling clack",
+    "event": "undo"
+  },
+  {
+    "name": "combo-chain-low",
+    "seconds": 1.0,
+    "prompt": "Two quick bright ceramic clacks rising in pitch plus a small warm chime",
+    "event": "chain (2-3)"
+  },
+  {
+    "name": "combo-chain-mid",
+    "seconds": 1.4,
+    "prompt": "Rising run of three bright ceramic chime notes over a soft wooden knock",
+    "event": "chain (4-5)"
+  },
+  {
+    "name": "combo-chain-high",
+    "seconds": 2.0,
+    "prompt": "Jubilant ascending cascade of five ceramic/glass chime notes with shimmer tail",
+    "event": "chain (6+)"
+  },
+  {
+    "name": "round-start",
+    "seconds": 2.4,
+    "prompt": "Single soft strike of a small brass singing bowl, calm swelling ring",
+    "event": "round-start"
+  },
+  {
+    "name": "win-stinger",
+    "seconds": 2.8,
+    "prompt": "Warm celebratory brass and ceramic chime fanfare rising to a sparkling held note",
+    "event": "win-stinger"
+  },
+  {
+    "name": "lose-stinger",
+    "seconds": 2.0,
+    "prompt": "Gentle descending pair of muted wooden marimba notes fading out",
+    "event": "lose"
+  },
+  {
+    "name": "star-rating",
+    "seconds": 1.8,
+    "prompt": "Three small bright metallic dings in quick ascending order with glassy sparkle",
+    "event": "star-rating"
+  },
+  {
+    "name": "new-record",
+    "seconds": 2.2,
+    "prompt": "Sparkling ascending glissando of tiny glass chimes ending on a proud bright note",
+    "event": "new-record"
+  },
+  {
+    "name": "target-shift",
+    "seconds": 0.8,
+    "prompt": "Small brass instrument dial clicking one notch round with a soft glassy shimmer",
+    "event": "target-shift"
+  }
+]

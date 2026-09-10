@@ -365,6 +365,7 @@ class App {
           this.audio.play(ev.chain > 1 ? 'chain' : 'pair', { chain: ev.chain });
           // a deeper tile sliding free under the removed pair
           if (before && E.exposedTiles(st).some(id => st.tiles[id] && !E.isExposed(before, id))) this.audio.play('expose');
+          if (st.ruleset.dynamic && st.status === 'active') this.audio.play('target-shift');
           this.ui.announce(`${ev.values[0]} and ${ev.values[1]} removed, +${ev.gained}. ${E.remainingTiles(st) / 2} pairs left.${st.ruleset.dynamic ? ` New target: ${E.currentTarget(st)}.` : ''}`);
           break;
         }
@@ -812,6 +813,8 @@ class App {
         : this.root.dataset.screen === 'settings' ? 'settings-saved' : 'back';
     } else if (act === 'begin') {
       sfx = 'confirm';
+    } else if (['journey', 'practice', 'challenge', 'learn', 'scores'].includes(act)) {
+      sfx = 'tab-switch';
     }
     this.audio.play(sfx);
     if (el.dataset.stage) {

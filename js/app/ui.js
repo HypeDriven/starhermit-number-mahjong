@@ -318,6 +318,7 @@ export class UI {
     const achHtml = newAchievements.length
       ? `<h2>Achievements</h2><div class="card-grid">${newAchievements.map(a => `<div class="card"><h3>🏅 ${this.esc(a.name)}</h3><p>${this.esc(a.desc)}</p></div>`).join('')}</div>` : '';
     this.show(`
+      <div class="results-art" aria-hidden="true"></div>
       <h1>${headline}</h1>
       <p>${this.esc(content.name)} · ${won ? `completed in ${this.fmtMs(state.elapsedMs)}` : `reason: ${state.reason}`} · ${state.invalidCount} invalid attempt${state.invalidCount === 1 ? '' : 's'}</p>
       ${stars != null && won ? `<p aria-label="${stars} of 3 stars" style="font-size:1.6rem;color:var(--accent)">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</p>` : ''}

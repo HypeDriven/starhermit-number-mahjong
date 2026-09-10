@@ -44,6 +44,7 @@ const SAMPLE_FILES = {
   'drag-start': 'tile-drag-start',
   drop: 'tile-drop',
   'tab-switch': 'ui-tab-switch',
+  'target-shift': 'target-shift',
 };
 
 export class AudioEngine {
@@ -198,6 +199,10 @@ export class AudioEngine {
       case 'tab-switch':
         this._blip(540 * v, 0.05, { type: 'triangle', gain: 0.06 });
         break;
+      case 'target-shift':
+        this._blip(760 * v, 0.09, { type: 'triangle', gain: 0.07 });
+        setTimeout(() => this._blip(1140 * v, 0.22, { type: 'sine', gain: 0.05, slide: 60 }), 70);
+        break;
       case 'pair': {
         const base = 520 * v;
         this._blip(base, 0.12, { type: 'sine', gain: 0.18 });
@@ -327,6 +332,11 @@ function captionFor(event, opts = {}) {
     case 'timer-warning': return 'time running out';
     case 'round-start': return 'round begins';
     case 'expose': return 'deeper tile exposed';
+    case 'target-shift': return 'target changed';
+    case 'countdown': return 'countdown';
+    case 'toast': return 'notice';
+    case 'modal-open': return 'panel opened';
+    case 'modal-close': return 'panel closed';
     case 'settings-saved': return 'settings saved';
     case 'achievement': return 'achievement unlocked';
     default: return '';

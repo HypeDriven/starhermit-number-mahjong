@@ -227,6 +227,27 @@ button:focus-visible, [tabindex]:focus-visible, a:focus-visible {
 .menu-stack button.primary { justify-content: center; }
 .menu-stack .title-next { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 0; max-width: none; }
 
+/* Title key art: generated observatory-desk backdrop behind the wordmark.
+   Purely decorative — if the file fails to load the gradient below remains. */
+#app[data-screen="title"] #screen-root {
+  background:
+    linear-gradient(to bottom, color-mix(in srgb, var(--bg) 55%, transparent), var(--bg) 62%),
+    radial-gradient(1200px 700px at 50% -10%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%),
+    url('../assets/title-backdrop.webp') center top / cover no-repeat,
+    var(--bg);
+}
+#app[data-contrast="1"][data-screen="title"] #screen-root { background-image: none; background-color: var(--bg); }
+
+.results-art {
+  height: clamp(110px, 22vw, 200px);
+  margin: 0 0 4px;
+  border-radius: var(--radius);
+  background: url('../assets/tile-stack.webp') center 62% / cover no-repeat, var(--panel);
+  border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+  mask-image: linear-gradient(to bottom, #000 62%, transparent);
+}
+#app[data-contrast="1"] .results-art, #app[data-motion="reduced"] .results-art { display: none; }
+
 .title-hero { text-align: center; padding-top: 4vh; }
 .title-hero .mark { font-size: clamp(2.6rem, 7vw, 4.2rem); font-family: var(--font); letter-spacing: 0.04em; margin: 0; }
 .title-hero .tag { color: var(--muted); margin: 6px 0 0; font-size: 1.05rem; }
