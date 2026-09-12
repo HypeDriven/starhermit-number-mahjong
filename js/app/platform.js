@@ -81,7 +81,9 @@ export async function syncServerTime() {
     const t1 = Date.now();
     if (!res.ok) throw new Error('http ' + res.status);
     const data = await res.json();
-    const serverMs = data.utcMs ?? data.now ?? data.ms;
+    // Platform contract is { serverTime }; older/dev servers use utcMs/now/ms.
+    const serverMs = Number(data.serverTime ?? data.utcMs ?? data.now ?? data.ms);
+    if (!Number.isFinite(serverMs) || serverMs <= 0) throw new Error('invalid time response');
     platform.serverOffsetMs = serverMs - (t0 + (t1 - t0) / 2);
     platform.online = true;
   } catch {

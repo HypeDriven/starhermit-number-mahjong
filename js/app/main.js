@@ -24,7 +24,10 @@ const $ = (s) => document.querySelector(s);
 // fragment, Bearer auth, profile, cloud-save mirror, verified score boards
 // ---------------------------------------------------------------------------
 
-function nowUtcMs() { return Date.now() + platform.serverOffsetMs; }
+function nowUtcMs() {
+  const off = Number(platform.serverOffsetMs);
+  return Date.now() + (Number.isFinite(off) ? off : 0); // never let a bad offset poison the daily clock
+}
 function todayDailyInfo() {
   const d = new Date(nowUtcMs());
   const iso = d.toISOString().slice(0, 10);
@@ -886,11 +889,18 @@ class App {
         break;
       }
       case 'daily': {
-        const { iso, dayIndex } = todayDailyInfo();
-        const content = dailyContent(iso, dayIndex);
-        this.openModeSetup(content, {
-          extraButtons: `<p class="meta" style="text-align:center">Next daily in ${this.ui.fmtMs(msUntilNextDaily())}${DAILY_EXCLUDED.has(iso) ? ' · today is excluded from ranking' : ''}</p>`,
-        });
+        try {
+          const { iso, dayIndex } = todayDailyInfo();
+          const content = dailyContent(iso, dayIndex);
+          this.openModeSetup(content, {
+            extraButtons: `<p class="meta" style="text-align:center">Next daily in ${this.ui.fmtMs(msUntilNextDaily())}${DAILY_EXCLUDED.has(iso) ? ' · today is excluded from ranking' : ''}</p>`,
+          });
+        } catch (err) {
+          // A bad clock/offset must never leave the menu silently unresponsive.
+          platform.serverOffsetMs = 0;
+          this.ui.toast('Could not set up today\'s daily (clock problem). Using this device\'s clock — try again.');
+          console.warn('daily setup failed', err);
+        }
         break;
       }
       case 'journey': this.ui.showJourney(this.progress); break;

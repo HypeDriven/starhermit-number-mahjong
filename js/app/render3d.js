@@ -538,7 +538,10 @@ export class Renderer3D {
     const tanH = tanV * Math.min(aspect, 1.8);
     const distW = (w / 2) / tanH;
     const distD = ((d / 2) * 0.85) / tanV;
-    const dist = Math.max(distW, distD, 3.8) * 1.18;
+    const dist = Math.max(distW, distD, 3.8) * (aspect < 0.8 ? 1.05 : 1.18); // tighter on portrait: width-bound tiles stay ≥44px
+    // fog starts beyond the fitted distance so tile faces never dim on far
+    // (narrow-viewport) framings
+    if (this.scene.fog) { this.scene.fog.near = Math.max(18, dist * 1.6); this.scene.fog.far = Math.max(40, dist * 3.2); }
     let target;
     if (this.cameraMode === 'top') target = { px: 0, py: dist * 1.35, pz: 0.8, lx: 0, ly: 0, lz: 0 };
     else if (this.cameraMode === 'low') target = { px: 0, py: dist * 0.62, pz: dist * 0.95, lx: 0, ly: 0, lz: 0 };
