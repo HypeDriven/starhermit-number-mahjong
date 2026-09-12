@@ -140,6 +140,11 @@ export const store = {
     return unpack(getItem(PREFIX + 'replay.' + contentId));
   },
 
+  // last timestamp the cloud mirror accepted (guards the remote-preferred
+  // load against overwriting local changes that never synced)
+  loadCloudMeta() { return unpack(getItem(PREFIX + 'cloudmeta')) || null; },
+  saveCloudMeta(meta) { setItem(PREFIX + 'cloudmeta', pack(meta)); },
+
   // local leaderboard: board key → entries (validated locally, ranked boards
   // additionally verified server-side when hosted)
   loadBoard(boardKey) { return unpack(getItem(PREFIX + 'board.' + boardKey)) || []; },

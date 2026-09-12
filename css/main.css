@@ -253,6 +253,21 @@ button:focus-visible, [tabindex]:focus-visible, a:focus-visible {
 .title-hero .tag { color: var(--muted); margin: 6px 0 0; font-size: 1.05rem; }
 .title-status { color: var(--muted); font-size: 0.85rem; margin-top: 18px; min-height: 1.2em; }
 
+#account-chip {
+  position: fixed;
+  top: calc(8px + var(--sat));
+  right: calc(10px + var(--sar));
+  z-index: 30;
+  display: flex; gap: 8px; align-items: baseline;
+  background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+#account-chip .sync-status { color: var(--muted); font-size: 0.75rem; }
+
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin: 18px 0; }
 .card {
   background: var(--panel);

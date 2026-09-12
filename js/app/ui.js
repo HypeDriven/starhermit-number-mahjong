@@ -71,7 +71,7 @@ export class UI {
 
   // -------------------------------------------------------------- title ---
 
-  showTitle({ journeyDone, dailyDone, dailyDate, streak, resumeInfo }) {
+  showTitle({ journeyDone, dailyDone, dailyDate, streak, resumeInfo, profile }) {
     const next = JOURNEY.find(s => !journeyDone[s.id]);
     this.show(`
       <div class="title-hero">
@@ -91,7 +91,7 @@ export class UI {
         <button data-act="settings" role="menuitem">Settings</button>
         <button data-act="help" role="menuitem">Help &amp; Rules</button>
       </div>
-      <p class="title-status">${streak > 1 ? `Win streak: ${streak}. ` : ''}v${BUILD_VERSION} · deterministic seeds · offline capable</p>
+      <p class="title-status">${profile ? `Playing as ${this.esc(profile)} · ` : ''}${streak > 1 ? `Win streak: ${streak}. ` : ''}v${BUILD_VERSION} · deterministic seeds · offline capable</p>
     `, 'title');
   }
 
@@ -326,7 +326,7 @@ export class UI {
         ${rows}
         <tr class="total"><td>Total</td><td>${breakdown.total}</td></tr>
       </table>
-      <p class="meta">Par: ${par.score} pts in ${this.fmtMs(par.timeMs)}${boardPlacement != null && boardPlacement >= 0 ? ` · placed #${boardPlacement + 1} on the local board` : ''}</p>
+      <p class="meta">Par: ${par.score} pts in ${this.fmtMs(par.timeMs)}<span id="board-note">${boardPlacement != null && boardPlacement >= 0 ? ` · placed #${boardPlacement + 1} on the local board` : ''}</span></p>
       ${achHtml}
       <div class="menu-stack">
         ${won && opts_next(content) ? `<button class="primary" data-act="next">${this.esc(nextLabel(content))}</button>` : ''}
@@ -407,20 +407,26 @@ export class UI {
 
   // --------------------------------------------------------- leaderboards --
 
-  showScores({ boards, progress }) {
+  showScores({ boards, progress, online = null, profile = null }) {
     const section = (title, entries, note) => `
       <h2>${title}</h2>
       ${entries.length ? `<table class="score-table"><tr><th>#</th><th>Score</th><th>Time</th><th>Invalid</th><th>When</th></tr>${
         entries.slice(0, 10).map((e, i) => `<tr><td>${i + 1}</td><td>${e.score}</td><td>${this.fmtMs(e.elapsedMs)}</td><td>${e.invalidCount}</td><td>${new Date(e.at).toLocaleDateString()}</td></tr>`).join('')
       }</table>` : `<p class="meta">${note || 'No entries yet — be the first.'}</p>`}`;
+    const onlineSection = online && online.entries.length ? `
+      <h2>Online board</h2>
+      <table class="score-table"><tr><th>#</th><th>Player</th><th>Score</th></tr>${
+        online.entries.map((e, i) => `<tr><td>${i + 1}</td><td>${this.esc(e.nickname)}${e.me ? ' (you)' : ''}</td><td>${e.score}</td></tr>`).join('')
+      }</table>` : '';
     this.show(`
       <h1>Score Chase</h1>
       <p>Asynchronous comparison on validated seeds. Ranked submissions carry a replay log; unverifiable boards are marked casual.</p>
+      ${onlineSection}
       ${section('Today’s daily', boards.daily, 'Play today’s daily to appear here.')}
       ${section('Journey total', boards.journey)}
       ${section('Zenith Protocol (challenge)', boards.zenith)}
       <h2>Profile</h2>
-      <p class="meta">${progress.totals.plays} rounds played · ${progress.totals.wins} wins · ${progress.totals.pairs} pairs removed · mastery ${progress.masteryXp} XP</p>
+      <p class="meta">${profile ? `${this.esc(profile)} · ` : ''}${progress.totals.plays} rounds played · ${progress.totals.wins} wins · ${progress.totals.pairs} pairs removed · mastery ${progress.masteryXp} XP</p>
       <div class="menu-stack"><button data-act="back">Back</button></div>
     `, 'scores');
   }

@@ -7,6 +7,11 @@ import * as E from '../rules/engine.js';
 import { JOURNEY, LESSONS, dailyContent, practiceContent, challengeContent, lessonContent, prepareContent, getTheme, DAILY_EXCLUDED, describeRuleShort } from '../rules/content.js';
 import { openReplay, recordCommand, closeReplay, BUILD_VERSION } from '../rules/replay.js';
 import { store } from './storage.js';
+import {
+  platform, readLaunchToken, syncServerTime, startRefreshLoop,
+  loadProfile, loadCloudSave, scheduleCloudSave, flushCloudSave,
+  submitVerifiedScore, fetchOnlineBoard,
+} from './platform.js';
 import { AudioEngine } from './audio.js';
 import { UI, ACHIEVEMENTS } from './ui.js';
 import { Renderer3D, detectTier, webglAvailable } from './render3d.js';
@@ -15,46 +20,11 @@ import { hashString } from '../rules/rng.js';
 const $ = (s) => document.querySelector(s);
 
 // ---------------------------------------------------------------------------
-// host integration (StarHermit): scope from launch token, same-origin /api
+// host integration (StarHermit platform module): launch token from the URL
+// fragment, Bearer auth, profile, cloud-save mirror, verified score boards
 // ---------------------------------------------------------------------------
 
-const host = {
-  scope: 'standalone',
-  apiBase: '/api/v1',
-  launchToken: null,
-  serverOffsetMs: 0,
-  online: false,
-};
-
-function readLaunchToken() {
-  const params = new URLSearchParams(location.search);
-  const token = params.get('launch') || (window.__STARHERMIT__ && window.__STARHERMIT__.launchToken) || null;
-  if (!token) return;
-  host.launchToken = token; // memory only — never persisted
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1] || ''));
-    if (payload.scope) host.scope = payload.scope;
-    if (payload.slug) host.scope = payload.slug;
-  } catch { /* opaque token: fine, scope stays default */ }
-}
-
-async function syncServerTime() {
-  const t0 = Date.now();
-  try {
-    const res = await fetch(`${host.apiBase}/time`, { cache: 'no-store', signal: AbortSignal.timeout(2500) });
-    const t1 = Date.now();
-    if (!res.ok) throw new Error('http ' + res.status);
-    const data = await res.json();
-    const serverMs = data.utcMs ?? data.now ?? data.ms;
-    host.serverOffsetMs = serverMs - (t0 + (t1 - t0) / 2);
-    host.online = true;
-  } catch {
-    host.serverOffsetMs = 0; // offline: local clock is the platform clock
-    host.online = false;
-  }
-}
-
-function nowUtcMs() { return Date.now() + host.serverOffsetMs; }
+function nowUtcMs() { return Date.now() + platform.serverOffsetMs; }
 function todayDailyInfo() {
   const d = new Date(nowUtcMs());
   const iso = d.toISOString().slice(0, 10);
@@ -110,8 +80,9 @@ class App {
   // ------------------------------------------------------------- boot -----
 
   async boot() {
-    readLaunchToken();
+    const hosted = readLaunchToken();
     syncServerTime(); // fire and forget; daily uses best-known offset
+    if (hosted) this._initHosted();
     this.ui.applyA11ySettings(this.settings);
     this.ui.applyTheme('ivory-dusk', this.settings.themeOverride);
 
@@ -139,7 +110,7 @@ class App {
     this._wireVisibility();
     this._loopGamepad();
     this.toTitle('boot');
-    this._track('start', { tier, online: host.online });
+    this._track('start', { tier, online: platform.online });
   }
 
   _track(name, data = {}) {
@@ -148,6 +119,54 @@ class App {
     this.telemetry.push({ name, ...data, at: Date.now() });
     if (this.telemetry.length > 200) this.telemetry.shift();
   }
+
+  // -------------------------------------------------- hosted (StarHermit) --
+
+  _initHosted() {
+    document.getElementById('account-chip').hidden = false;
+    const nameEl = document.getElementById('account-name');
+    nameEl.textContent = 'Player ' + String(platform.userId || '').slice(0, 8);
+    startRefreshLoop(); // re-mint the 60-min token every 45 min
+    platform.persistMeta = (savedAt) => store.saveCloudMeta({ savedAt });
+    loadProfile().then((nick) => {
+      if (nick) nameEl.textContent = nick;
+      if (this.phase === 'title' && this.root.dataset.screen === 'title') this.toTitle('profile');
+    });
+    loadCloudSave().then((doc) => {
+      if (doc) this._adoptCloudDoc(doc);
+    });
+  }
+
+  _adoptCloudDoc(doc) {
+    // the cloud slot is the mirror of record; on conflict prefer remote and
+    // rewrite localStorage, which stays the offline cache — unless local
+    // changes are newer than the last accepted upload, in which case push
+    // them up instead of clobbering them
+    const meta = store.loadCloudMeta();
+    if (meta?.savedAt && doc.savedAt && doc.savedAt < meta.savedAt) {
+      this.cloudSave();
+      return;
+    }
+    if (doc.savedAt) store.saveCloudMeta({ savedAt: doc.savedAt });
+    if (doc.settings && typeof doc.settings === 'object') {
+      Object.assign(this.settings, doc.settings);
+      store.saveSettings(this.settings);
+      this.audio.setMuted(this.settings.muted);
+      for (const ch of ['music', 'effects', 'ambience']) this.audio.setVolume(ch, this.settings[ch]);
+      this.ui.applyA11ySettings(this.settings);
+    }
+    if (doc.progress && typeof doc.progress === 'object') {
+      this.progress = { ...this.progress, ...doc.progress };
+      store.saveProgress(this.progress);
+    }
+    if (this.phase === 'title' && this.root.dataset.screen === 'title') this.toTitle('cloud');
+  }
+
+  cloudDoc() {
+    return { version: 1, savedAt: Date.now(), progress: this.progress, settings: this.settings };
+  }
+
+  cloudSave() { scheduleCloudSave(this.cloudDoc()); }
 
   caption(text) {
     const el = $('#sound-caption');
@@ -179,6 +198,7 @@ class App {
       dailyDate: iso,
       streak: this.winStreak,
       resumeInfo,
+      profile: platform.token ? (platform.nickname || 'Player ' + String(platform.userId || '').slice(0, 8)) : null,
     });
   }
 
@@ -532,13 +552,14 @@ class App {
       const boardKey = this._boardKey();
       placement = store.submitBoardEntry(boardKey, entry);
       if (this.content.kind === 'journey' && won) store.submitBoardEntry('journey.all', entry, 50);
-      // The platform guarantees only GET /api/v1/time; every other route 404s
-      // in production, so ranked submission stays on the local board rather
-      // than POSTing to a route that is not guaranteed to exist.
+      // Ranked wins additionally go to the game's own replay-validating
+      // server when hosted; any failure leaves the local board as the record.
+      this._submitRanked(boardKey, entry);
     }
 
     const newAchievements = this._checkAchievements();
     store.saveProgress(this.progress);
+    this.cloudSave();
 
     this.ui.showResults({
       state: st, content: this.content, breakdown, stars,
@@ -565,6 +586,21 @@ class App {
     if (this.content.kind === 'challenge') return 'challenge.' + this.content.id;
     if (this.content.kind === 'journey') return 'journey.' + this.content.id;
     return 'casual.' + this.content.kind;
+  }
+
+  // POST the closed replay envelope to server.js's verified /api/v1/scores.
+  // Only daily/journey/challenge rounds are server-verifiable; practice and
+  // lessons stay local, and any failure leaves the local board as the record.
+  _submitRanked(boardKey, entry) {
+    if (!platform.token || !['daily', 'journey', 'challenge'].includes(this.content.kind)) return;
+    const envelope = store.loadReplay(this.content.id);
+    if (!envelope) return;
+    submitVerifiedScore(boardKey, entry, envelope).then((res) => {
+      if (!res) return;
+      const note = document.getElementById('board-note');
+      if (note) note.textContent += res.rank != null ? ` · verified online, rank #${res.rank}` : ' · verified online';
+      this.ui.announce('Score verified online.');
+    });
   }
 
   _checkAchievements() {
@@ -884,6 +920,7 @@ class App {
       case 'reset-tutorials':
         this.progress.lessons = {};
         store.saveProgress(this.progress);
+        this.cloudSave();
         this.ui.toast('Lessons reset');
         break;
       case 'erase-all':
@@ -893,6 +930,8 @@ class App {
           this.progress = store.loadProgress();
           this.ui.applyA11ySettings(this.settings);
           this.ui.showSettings(this.settings);
+          this.cloudSave();
+          flushCloudSave(); // mirror the erased state before any reload
           this.ui.toast('All local data erased');
         }
         break;
@@ -908,6 +947,7 @@ class App {
     else val = e.target.value || null;
     this.settings[key] = val;
     store.saveSettings(this.settings);
+    this.cloudSave();
     this._track('settings-change', { key });
     if (e.type === 'change') this.audio.play(e.target.type === 'range' ? 'slider' : 'toggle');
     // apply live
@@ -926,14 +966,18 @@ class App {
 
   _showScores() {
     const { iso } = todayDailyInfo();
-    this.ui.showScores({
-      boards: {
-        daily: store.loadBoard('daily.' + iso),
-        journey: store.loadBoard('journey.all'),
-        zenith: store.loadBoard('challenge.chal-zenith'),
-      },
-      progress: this.progress,
+    const boards = {
+      daily: store.loadBoard('daily.' + iso),
+      journey: store.loadBoard('journey.all'),
+      zenith: store.loadBoard('challenge.chal-zenith'),
+    };
+    // platform leaderboard is read-only and optional: local records always show
+    const render = (online) => this.ui.showScores({
+      boards, progress: this.progress, online,
+      profile: platform.token ? (platform.nickname || 'Player ' + String(platform.userId || '').slice(0, 8)) : null,
     });
+    if (platform.token) fetchOnlineBoard().then(render, () => render(null));
+    else render(null);
   }
 
   // --------------------------------------------------- keyboard + focus ---
@@ -1119,6 +1163,7 @@ class App {
         store.saveSessionSnapshot(this.content.id, { state: E.serialize(this.state) });
       }
     });
+    window.addEventListener('pagehide', () => { flushCloudSave(); });
   }
 }
 
