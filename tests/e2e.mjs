@@ -105,11 +105,11 @@ async function tapTile(page, pos, id) {
 }
 
 async function runPass(browser, vpName, contextOpts) {
-  const context = await browser.newContext(contextOpts);
+  const context = await browser.newContext({ locale: 'en-US', ...contextOpts });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
+  page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`console ${m.type()}: ${m.text()}`); });
 
   try {
     await step(`${vpName}: load reaches title`, async () => {
@@ -122,6 +122,42 @@ async function runPass(browser, vpName, contextOpts) {
       await page.click('[data-act="settings"]');
       await page.waitForSelector('#app[data-screen="settings"]');
       await page.screenshot({ path: SHOT('settings', vpName) });
+      await page.click('[data-act="back"]');
+      await page.waitForSelector('#app[data-screen="title"]');
+    });
+
+    await step(`${vpName}: Graphics settings apply live and persist`, async () => {
+      const preset = () => page.evaluate(() => document.body.dataset.gfxPreset);
+      const summary = () => page.locator('#gfx-summary').innerText();
+      await page.click('[data-act="settings"]');
+      await page.waitForSelector('#gfx-preset');
+      // headless runs use a software GPU, so Auto resolves to Low
+      if (await preset() !== 'low') throw new Error(`Auto should resolve to low under SwiftShader, got ${await preset()}`);
+      await page.selectOption('#gfx-preset', 'low');
+      await page.waitForFunction(() => document.querySelector('#gfx-summary')?.textContent.includes('no shadows'));
+      await page.selectOption('#gfx-preset', 'high');
+      await page.waitForFunction(() => document.body.dataset.gfxPreset === 'high' && document.querySelector('#gfx-summary').textContent.includes('2048² shadows'));
+      if ((await page.locator('#gfx-cat-shadows option').first().innerText()) !== 'From preset (Medium)') throw new Error('shadows select should default to "From preset (Medium)"');
+      await page.selectOption('#gfx-cat-shadows', 'off');
+      await page.waitForFunction(() => document.querySelector('#gfx-summary').textContent.includes('no shadows'));
+      await page.locator('#gfx-show-fps').check();
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      if (overflow > 0) throw new Error(`settings panel overflows horizontally by ${overflow}px`);
+      await page.locator('#gfx-section').screenshot({ path: SHOT('graphics', vpName) });
+      // survives a reload
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForFunction(() => window.__nm && window.__nm.phase === 'title', null, { timeout: 15000 });
+      if (await preset() !== 'high') throw new Error(`preset not persisted: ${await preset()}`);
+      await page.click('[data-act="settings"]');
+      await page.waitForSelector('#gfx-preset');
+      if (await page.inputValue('#gfx-preset') !== 'high') throw new Error('preset select not restored');
+      if (await page.inputValue('#gfx-cat-shadows') !== 'off') throw new Error('shadows override not restored');
+      if (!(await page.isChecked('#gfx-show-fps'))) throw new Error('show-fps not restored');
+      // choosing a preset clears overrides
+      await page.selectOption('#gfx-preset', 'ultra');
+      await page.waitForFunction(() => document.body.dataset.gfxPreset === 'ultra');
+      if (await page.inputValue('#gfx-cat-shadows') !== 'preset') throw new Error('choosing a preset should clear overrides');
+      if (!(await summary()).includes('4096² shadows')) throw new Error('ultra summary missing 4096² shadows');
       await page.click('[data-act="back"]');
       await page.waitForSelector('#app[data-screen="title"]');
     });
@@ -155,6 +191,21 @@ async function runPass(browser, vpName, contextOpts) {
       await page.waitForSelector('#overlay-pause[hidden]', { state: 'attached' });
       const phase = await page.evaluate(() => window.__nm.phase);
       if (phase !== 'active') throw new Error(`expected active after resume, got ${phase}`);
+    });
+
+    await step(`${vpName}: in-game Graphics change from pause (Ultra → Auto)`, async () => {
+      // the round has been rendering at Ultra with the FPS readout; switch back to Auto via pause → Settings
+      if (!(await page.isVisible('#fps-meter'))) throw new Error('FPS readout should be visible when enabled');
+      await page.click('#btn-pause');
+      await page.click('#btn-pause-settings');
+      await page.waitForSelector('#gfx-preset');
+      await page.selectOption('#gfx-preset', 'auto');
+      await page.locator('#gfx-show-fps').uncheck();
+      await page.waitForFunction(() => document.body.dataset.gfxPreset === 'low' && document.body.dataset.gfxAuto === '1');
+      await page.click('[data-act="back"]');
+      await page.click('#btn-resume');
+      await page.waitForFunction(() => window.__nm.phase === 'active');
+      if (await page.isVisible('#fps-meter')) throw new Error('FPS readout should hide when disabled');
     });
 
     await step(`${vpName}: hint button reveals a pair`, async () => {

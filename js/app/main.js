@@ -14,7 +14,8 @@ import {
 } from './platform.js';
 import { AudioEngine } from './audio.js';
 import { UI, ACHIEVEMENTS } from './ui.js';
-import { Renderer3D, detectTier, webglAvailable } from './render3d.js';
+import { Renderer3D, webglAvailable } from './render3d.js';
+import { choosePreset, resolve, detectPreset } from './gfx.js';
 import { hashString } from '../rules/rng.js';
 
 const $ = (s) => document.querySelector(s);
@@ -90,10 +91,10 @@ class App {
     this.ui.applyTheme('ivory-dusk', this.settings.themeOverride);
 
     // renderer (3D hero) with graceful 2D fallback
-    const tier = this.settings.graphicsTier === 'auto' ? detectTier() : this.settings.graphicsTier;
+    this._migrateGfx();
     if (webglAvailable() && !this.settings.board2d) {
       try {
-        this.renderer = new Renderer3D($('#gl'), { tier, reducedMotion: this.settings.reducedMotion });
+        this.renderer = new Renderer3D($('#gl'), { gfx: this.settings.gfx, reducedMotion: this.settings.reducedMotion });
         this.renderer.setTheme(getTheme(this.settings.themeOverride || 'ivory-dusk'));
         this.renderer.setCameraMode(this.settings.camera);
       } catch (e) {
@@ -107,13 +108,14 @@ class App {
         'The 2D board is active. You can re-enable the 3D observatory in Settings → Graphics.';
     }
 
+    this._reflectGfx();
     this.audio.onCaption = (t) => { if (this.settings.soundCaptions && t) this.caption(t); };
     this._wireInput();
     this._wireGlobalKeys();
     this._wireVisibility();
     this._loopGamepad();
     this.toTitle('boot');
-    this._track('start', { tier, online: platform.online });
+    this._track('start', { tier: this.renderer ? this.renderer.q.preset : '2d', online: platform.online });
   }
 
   _track(name, data = {}) {
@@ -157,6 +159,9 @@ class App {
       this.audio.setMuted(this.settings.muted);
       for (const ch of ['music', 'effects', 'ambience']) this.audio.setVolume(ch, this.settings[ch]);
       this.ui.applyA11ySettings(this.settings);
+      this._migrateGfx();
+      if (this.renderer) this.renderer.setGraphics(this.settings.gfx);
+      this._reflectGfx();
     }
     if (doc.progress && typeof doc.progress === 'object') {
       this.progress = { ...this.progress, ...doc.progress };
@@ -937,6 +942,9 @@ class App {
         if (confirm('Erase ALL local progress, settings, and leaderboard entries? This cannot be undone.')) {
           store.resetAll();
           this.settings = store.loadSettings();
+          this._migrateGfx();
+          if (this.renderer) this.renderer.setGraphics(this.settings.gfx);
+          this._reflectGfx();
           this.progress = store.loadProgress();
           this.ui.applyA11ySettings(this.settings);
           this.ui.showSettings(this.settings);
@@ -948,7 +956,58 @@ class App {
     }
   }
 
+  // Settings saved before the Graphics panel used a single tier.
+  _migrateGfx() {
+    if (this.settings.gfx && typeof this.settings.gfx === 'object') return;
+    const old = { low: 'low', medium: 'balanced', high: 'high' }[this.settings.graphicsTier];
+    this.settings.gfx = choosePreset({}, old || 'auto');
+    delete this.settings.graphicsTier;
+  }
+
+  graphicsInfo() {
+    return this.renderer ? this.renderer.graphicsInfo() : null;
+  }
+
+  // Mirror the resolved graphics state onto the DOM (tests, CSS) and the FPS readout.
+  _reflectGfx() {
+    const r = this.renderer ? this.renderer.q : resolve(this.settings.gfx, detectPreset(''));
+    document.body.dataset.gfxPreset = r.preset;
+    document.body.dataset.gfxAuto = r.auto ? '1' : '0';
+    $('#gl').dataset.gfxPreset = r.preset;
+    const fps = $('#fps-meter');
+    if (fps) {
+      fps.hidden = !(r.showFps && this.renderer);
+      if (fps.hidden) fps.textContent = '';
+      else if (!fps.textContent) fps.textContent = '… fps';
+    }
+  }
+
+  _onGfxInput(e, key) {
+    const t = e.target;
+    const isRange = t.type === 'range';
+    if (!isRange && e.type !== 'change') return; // selects/checkboxes fire both input and change
+    let g = { ...(this.settings.gfx || {}) };
+    if (key === 'preset') g = choosePreset(g, t.value); // choosing a preset clears overrides
+    else if (key === 'render_scale') g.render_scale = Math.min(2, Math.max(0.5, Number(t.value) / 100));
+    else if (key === 'adaptive' || key === 'show_fps') g[key] = t.checked;
+    else if (t.value === 'preset') delete g[key];
+    else g[key] = t.value;
+    this.settings.gfx = g;
+    if (this.renderer) this.renderer.setGraphics(g);
+    this._reflectGfx();
+    if (e.type === 'change') {
+      store.saveSettings(this.settings);
+      this.cloudSave();
+      this._track('settings-change', { key: 'gfx.' + key });
+      this.audio.play(isRange ? 'slider' : 'toggle');
+      this.ui.refreshGfx(g, this.graphicsInfo());
+    } else {
+      this.ui.updateGfxSummary(g, this.graphicsInfo());
+    }
+  }
+
   _onSettingInput(e) {
+    if (e.target.dataset?.gfx) { this._onGfxInput(e, e.target.dataset.gfx); return; }
     const key = e.target.dataset?.set;
     if (!key) return;
     let val;
@@ -963,7 +1022,6 @@ class App {
     // apply live
     if (['music', 'effects', 'ambience'].includes(key)) this.audio.setVolume(key, val);
     if (key === 'muted') this.audio.setMuted(val);
-    if (key === 'graphicsTier' && this.renderer) this.renderer.setQuality(val === 'auto' ? detectTier() : val);
     if (key === 'reducedMotion' && this.renderer) this.renderer.setReducedMotion(val);
     if (key === 'camera' && this.renderer) { this.renderer.setCameraMode(val); this.renderer.resetCamera(); }
     if (key === 'board2d') location.reload();

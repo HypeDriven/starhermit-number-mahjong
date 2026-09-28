@@ -70,7 +70,7 @@ const DEFAULT_SETTINGS = {
   effects: 0.8,
   ambience: 0.4,
   muted: false,
-  graphicsTier: 'auto',       // auto | low | medium | high
+  gfx: null,                  // graphics panel: { preset, render_scale, adaptive, show_fps, <category>: tier } (see gfx.js)
   reducedMotion: false,
   highContrast: false,
   largeText: false,

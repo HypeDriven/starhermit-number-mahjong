@@ -5,6 +5,8 @@
 import { describeRule, describeRuleShort, JOURNEY, LESSONS, CHALLENGES, THEMES, getTheme } from '../rules/content.js';
 import { exposedTiles, legalPairs, currentTarget, remainingTiles, score } from '../rules/engine.js';
 import { BUILD_VERSION } from '../rules/replay.js';
+import { CATEGORIES, PRESETS, resolve, presetTier, describe, detectPreset } from './gfx.js';
+import { gfxStrings, fill } from './gfx-strings.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -354,9 +356,8 @@ export class UI {
         ${row('Sound captions (text cues for meaningful audio)', check('soundCaptions', s.soundCaptions, 'Sound captions'))}
       </div>
       <h2>Graphics</h2>
+      <div class="settings-grid" id="gfx-section">${this.gfxSectionHtml(s.gfx, this.app.graphicsInfo())}</div>
       <div class="settings-grid">
-        ${row('Quality tier', `<select data-set="graphicsTier" aria-label="Quality tier">
-          ${['auto', 'low', 'medium', 'high'].map(t => `<option value="${t}" ${s.graphicsTier === t ? 'selected' : ''}>${t}</option>`).join('')}</select>`)}
         ${row('Reduced motion', check('reducedMotion', s.reducedMotion, 'Reduced motion'))}
         ${row('Board view', `<select data-set="camera" aria-label="Camera view">
           ${['default', 'top', 'low'].map(t => `<option value="${t}" ${s.camera === t ? 'selected' : ''}>${t}</option>`).join('')}</select>`)}
@@ -386,6 +387,59 @@ export class UI {
       </div>
       <div class="menu-stack"><button data-act="back">Back</button></div>
     `, 'settings');
+  }
+
+  // Graphics section: quality preset, render scale, per-effect overrides,
+  // adaptive resolution, frame-rate readout, and a cost summary.
+  gfxSectionHtml(saved, info) {
+    const T = gfxStrings();
+    const g = saved || {};
+    const detected = info?.detected || detectPreset('');
+    const r = info?.resolved || resolve(g, detected);
+    const tierName = (p) => T.presets[p] || p;
+    const opt = (v, label, sel) => `<option value="${v}" ${sel ? 'selected' : ''}>${this.esc(label)}</option>`;
+    const row = (id, label, control) => `<div class="setting-row"><label for="${id}">${this.esc(label)}</label>${control}</div>`;
+    const presetSel = PRESETS.includes(g.preset) ? g.preset : 'auto';
+    const pct = Math.round(r.renderScale * 100);
+    const cats = Object.entries(CATEGORIES).map(([cat, tiers]) => {
+      const own = CATEGORIES[cat].includes(g[cat]) ? g[cat] : 'preset';
+      return row(`gfx-cat-${cat}`, T.cats[cat], `<select id="gfx-cat-${cat}" data-gfx="${cat}">
+        ${opt('preset', fill(T.fromPreset, { tier: T.tiers[presetTier(r.preset, cat)] || presetTier(r.preset, cat) }), own === 'preset')}
+        ${tiers.map(t => opt(t, T.tiers[t] || t, own === t)).join('')}</select>`);
+    }).join('');
+    return `
+      ${row('gfx-preset', T.quality, `<select id="gfx-preset" data-gfx="preset">
+        ${opt('auto', fill(T.auto, { tier: tierName(detected) }), presetSel === 'auto')}
+        ${PRESETS.map(p => opt(p, tierName(p), presetSel === p)).join('')}</select>`)}
+      ${row('gfx-render-scale', T.renderScale, `<span class="gfx-range"><input type="range" id="gfx-render-scale" data-gfx="render_scale" min="50" max="200" step="5" value="${pct}"><output id="gfx-render-scale-value" for="gfx-render-scale">${pct}%</output></span>`)}
+      ${cats}
+      ${row('gfx-adaptive', T.adaptive, `<input type="checkbox" id="gfx-adaptive" data-gfx="adaptive" ${r.adaptive ? 'checked' : ''}>`)}
+      ${row('gfx-show-fps', T.showFps, `<input type="checkbox" id="gfx-show-fps" data-gfx="show_fps" ${r.showFps ? 'checked' : ''}>`)}
+      <p class="meta gfx-summary" id="gfx-summary" data-preset="${r.preset}">${this.esc(this.gfxSummary(r, info))}</p>
+      <p class="meta gfx-note" id="gfx-post-note" ${info?.postFailed ? '' : 'hidden'}>${this.esc(T.postUnavailable)}</p>
+      <p class="meta gfx-note" id="gfx-off3d-note" ${info ? 'hidden' : ''}>${this.esc(T.off3d)}</p>`;
+  }
+
+  gfxSummary(r, info) {
+    const T = gfxStrings();
+    return [info?.gpu || T.unknownGpu, describe(r, info?.pixels, T.sum)].join(' · ');
+  }
+
+  // Re-render the Graphics section in place, keeping keyboard focus on the same control.
+  refreshGfx(saved, info) {
+    const sec = $('#gfx-section');
+    if (!sec) return;
+    const focusId = document.activeElement?.id;
+    sec.innerHTML = this.gfxSectionHtml(saved, info);
+    if (focusId && sec.querySelector('#' + focusId)) $('#' + focusId).focus({ preventScroll: true });
+  }
+
+  updateGfxSummary(saved, info) {
+    const r = info?.resolved || resolve(saved, info?.detected || detectPreset(''));
+    const out = $('#gfx-render-scale-value');
+    if (out) out.textContent = `${Math.round(r.renderScale * 100)}%`;
+    const sum = $('#gfx-summary');
+    if (sum) sum.textContent = this.gfxSummary(r, info);
   }
 
   // ---------------------------------------------------------------- help ---

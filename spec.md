@@ -16,7 +16,7 @@ and keep lifting until the felt is bare.
 | Players | 1, with asynchronous score comparison on shared seeds |
 | Session | 60-90 s for a lesson or an early journey stage; 3-5 min for a daily or a capstone |
 | Platforms | Desktop and mobile browsers, portrait and landscape; keyboard, pointer, touch, gamepad |
-| Rendering | Three.js (`vendor/three.module.js`, bundled) over a canvas, with a permanently present semantic DOM board as fallback and screen-reader surface |
+| Rendering | Three.js r160 (`vendor/three.module.js` plus same-revision addons under `vendor/three/addons/`, resolved through an import map) over a canvas, with a permanently present semantic DOM board as fallback and screen-reader surface |
 | Networking | Offline-first; hosted on StarHermit the client authenticates with the `#game_token=` launch token (Bearer on every call) and uses profile, cloud-saves, and its own server's replay-verified score route; standalone play makes only a same-origin `GET /api/v1/time` |
 
 ### File map
@@ -32,12 +32,16 @@ and keep lifting until the felt is bare.
 | `js/rules/replay.js` | Replay envelope: schema/build/content versions, command log, checkpoint hashes, `verifyReplay` |
 | `js/app/main.js` | Bootstrap, phase machine, input wiring, command dispatch, timers, progression, achievements, gamepad |
 | `js/app/ui.js` | Screens, HUD, 2D board render, toasts, announcements, settings, help, leaderboards, achievements list |
-| `js/app/render3d.js` | Three.js scene: desk, felt, props, tile meshes with canvas-drawn number textures, tweens, particles, picking |
+| `js/app/render3d.js` | Three.js scene: desk, felt, props, tile meshes with canvas-drawn number textures, tweens, particles, dust motes, picking; applies graphics settings live (shadows, post chain, reflections, detail, pixel ratio, adaptive resolution) |
+| `js/app/gfx.js` | Pure graphics quality model: presets, per-category tiers, GPU detection (`detectPreset`), `resolve`, `presetTier`, `choosePreset`, `describe` |
+| `js/app/gfx-strings.js` | Graphics-panel strings for en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT, chosen from `navigator.language` |
+| `vendor/three/addons/` | three@0.160.1 addons: EffectComposer, RenderPass, ShaderPass, OutputPass, GTAOPass, UnrealBloomPass, SMAAPass, FXAA/SMAA/GTAO shaders, RoomEnvironment, RoundedBoxGeometry |
 | `js/app/audio.js` | WebAudio buses, sample playback from `sfx/`, procedural fallback voices, ambience, generative music, captions |
 | `js/app/storage.js` | Checksummed, versioned `localStorage` with in-memory fallback: settings, progress, snapshots, replays, local boards |
 | `js/app/platform.js` | StarHermit host integration (no-op without a launch token): fragment token read/strip, Bearer auth + 45-min refresh, profile nickname, zip+base64 cloud-save mirror (debounced, pagehide flush), verified score POST, read-only platform leaderboard |
 | `server.js` | StarHermit game script: static host, `/api/v1/time`, replay-verified `/api/v1/scores` |
 | `tests/run-tests.mjs` | 87 headless assertions over rules, content, replay, storage |
+| `tests/gfx.test.mjs` | `node --test` unit tests for the graphics model and its locale strings |
 | `tests/browser-test.mjs` | 30 assertions in headless Chrome over the real DOM and canvas |
 | `tests/e2e.mjs` | Full desktop + mobile playthrough via playwright-core |
 | `sfx/` | 37 Opus clips, `manifest.txt` (canonical), `manifest.json` (generator input), `manifest.md` (prompt history) |
@@ -284,7 +288,37 @@ snaps every tween and clears particles to the exact deterministic end state befo
 motion removes the countdown, screen-in animation, particle bursts and the results art.
 
 **Hero.** The lit felt with its ivory terraces. The desk, lamp, telescope, star chart and books sit
-outside the play area, dimmer and out of focus, and are dropped entirely on the `low` quality tier.
+outside the play area, dimmer and out of focus, and are dropped entirely at `plain` scene detail
+(the Low preset).
+
+**Graphics.** A warm key light with PCF shadows whose frustum is fitted to the current board, a
+hemisphere fill and an oil-lamp point light, rendered with ACES filmic tone mapping and sRGB output.
+At `detailed` scene detail the tiles are rounded two-ply slabs (ivory face over a jade backing layer)
+with clearcoat and engraved numerals (a bump map from the same canvas), the desk has procedural wood
+grain, the felt a fibre texture, and the props gain an oil lamp with a flickering flame, telescope
+bands and paged books. Reflections light every PBR material from a `RoomEnvironment` via
+`PMREMGenerator`. Selection and hint tints use the face texture as their emissive map, so the numeral
+stays dark while the ivory lights up; the selection ring and pair-removal sparks are HDR so they bloom.
+Optional post-processing: GTAO contact darkening, bloom limited to highlights (threshold 1.3, above lit
+ivory), a colour grade (S-curve, slight saturation, warm highlights / cool shadows) with vignette, and
+FXAA, SMAA or MSAA (on the composer's render target, so it switches live). Ambient motion drifts dust
+motes through the lamp light and flickers the flame; it stops under reduced motion (game setting or
+`prefers-reduced-motion`). Settings → **Graphics** offers a quality preset (Auto, chosen from the
+`WEBGL_debug_renderer_info` GPU string — software renderers get Low, discrete GPUs and Apple M get
+High, everything else Balanced, and touch devices cap at Balanced; Low; Balanced; High; Ultra), a
+render scale (50–200%), one override per category with "From preset (…)" as the default — shadows
+(off/low/medium/high = none/1024²/2048²/4096²), ambient occlusion (off/on/high), bloom, colour grade,
+anti-aliasing (off/FXAA/SMAA/MSAA), reflections, scene detail (plain/detailed), particles
+(off/low/high = 0/60/200 sparks) and ambient motion (static/animated) — adaptive resolution (averages
+90 frames; steps the scale down 0.1 to a floor of 0.6 when frames exceed 26 ms, back up 0.05 below
+14 ms) and a frame-rate readout (bottom-left of the board, not interactive), plus a summary line
+"GPU · cost · W×H px". Choosing a preset clears overrides. Changes apply immediately, persist in
+`number-mahjong.settings` under `gfx` (and the cloud-save mirror), and are reflected as
+`data-gfx-preset` on `<body>` and the canvas. Pixel ratio is `min(dpr, cap) × preset scale × render
+scale × adaptive scale`, with caps Low 1, Balanced 1.5, High/Ultra 2 (Ultra scale 1.25). Low renders
+straight to the canvas with no composer, shadows, particles or props — no costlier than the original
+Low tier. If the post chain cannot be built the board renders without it and the panel says so. The
+panel's strings are localized; the rest of the game is English.
 
 **Visual assets the design calls for**
 
@@ -357,8 +391,11 @@ The shipping language set is **en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA,
 
 Today all player-facing strings are authored inline in English in `js/app/ui.js` (screens, help,
 settings), `js/app/main.js` (announcements, toasts), `js/rules/content.js` (stage names, challenge
-blurbs, lesson scripts, `describeRule`) and `index.html`; `<html lang="en">` is fixed. There is no
-string table and no locale negotiation — see **Design intent not yet implemented**. The intended
+blurbs, lesson scripts, `describeRule`) and `index.html`; `<html lang="en">` is fixed. The one
+exception is the Settings → Graphics section, whose strings come from `js/app/gfx-strings.js` in all
+nine shipping locales, picked from `navigator.languages` (exact tag, then the language's default
+region, then en-US). Elsewhere there is no string table and no locale negotiation — see **Design
+intent not yet implemented**. The intended
 design: one catalogue per locale keyed by string id, selected from the StarHermit launch token's
 locale claim and falling back to `navigator.languages` then `en-US`; regional variants inherit from
 their base (`fr-CA` ← `fr-FR`). Layout already tolerates expansion — every button, badge and card
@@ -449,16 +486,19 @@ persistent values for the session. Keys: `number-mahjong.settings`, `.progress`,
 `.replay.<id>`, `.board.<key>`. Session snapshots are written after every command and cleared on
 results; `beforeunload` writes a final one.
 
-**Performance budgets.** Quality tiers set device pixel ratio, shadow map size, particle cap and prop
-visibility only: `low` 1×/no shadows/no particles/no props, `medium` 1.5×/512/60, `high` 2×/1024/200.
-The particle pool is fixed at 200 and reused. The render loop stops while the tab is hidden. The
-target is 60 fps on desktop and a stable 30+ fps on mid-range phones at the `low` tier; input
+**Performance budgets.** Graphics presets (see §8 **Graphics**) set pixel ratio, shadow map size,
+post-processing, particle cap and scene detail only — never rules or picking. Settings saved with the
+older single `graphicsTier` migrate to the matching preset (`medium` → Balanced). The particle pool is fixed at 200 and reused. The render loop stops while the tab is hidden. The
+target is 60 fps on desktop and a stable 30+ fps on mid-range phones at the Low preset; input
 acknowledgement is immediate because rules resolution is synchronous and animation is decorative.
 
 **e2e driving.** `tests/e2e.mjs` boots its own static server on an ephemeral port (the repo's
 `server.js` is the platform script), then drives the real visible UI in headless Chrome: it clicks
-menu buttons, opens and closes settings, enters the journey map and stage setup, waits out the
-countdown, pauses and resumes with the HUD button, presses Hint, and clears the board by clicking the
+menu buttons, opens and closes settings, drives Settings → Graphics (Auto resolves to Low under
+SwiftShader; Low then High, a shadows override, the frame-rate toggle, persistence across reload,
+Ultra clearing overrides, no horizontal overflow), enters the journey map and stage setup, waits out the
+countdown, pauses and resumes with the HUD button, switches the running round from Ultra back to Auto
+through pause → Settings, presses Hint, and clears the board by clicking the
 3D canvas at each tile's projected screen position. State reads (`window.__nm`) are used only for
 synchronisation — phase, legal pairs, tile screen positions.
 
@@ -466,7 +506,9 @@ synchronisation — phase, legal pairs, tile screen positions.
 
 ## 14. Testing and acceptance criteria
 
-`npm test` (`tests/run-tests.mjs`, **87 assertions**) covers: RNG determinism and forking; construction,
+`npm test` runs `tests/run-tests.mjs` (**87 assertions**) and `tests/gfx.test.mjs` (7 `node --test`
+cases: GPU detection, resolve with presets/overrides/scale clamp, preset-clears-overrides, preset
+completeness, the summary, and graphics strings in every locale). `run-tests.mjs` covers: RNG determinism and forking; construction,
 exposure and side-lock; every legal action and every rejection reason; selection toggling; scoring
 components; undo/hint/reshuffle semantics; the no-moves terminal and its reshuffle escape; move and
 time limits; quit; dynamic targets; serialization, `Infinity` round-tripping and migration; replay
@@ -479,7 +521,7 @@ raycast path, pause/hint/undo, the authoritative clock stopping while paused, pe
 reload, ranked-daily undo rejection, and tile ghosting after removal, with zero console errors.
 
 `tests/e2e.mjs` runs the playthrough above twice — desktop 1280×800 and mobile 390×844 with touch —
-and asserts 20 checkpoints plus a console-error budget of zero (a benign GPU/autoplay noise filter aside).
+and asserts 24 checkpoints plus a console error/warning budget of zero (a benign GPU/autoplay noise filter aside).
 
 **QA bar, as checkable statements.**
 
@@ -504,7 +546,8 @@ and asserts 20 checkpoints plus a console-error budget of zero (a benign GPU/aut
 | `assets/tile-stack.webp` | Results banner (960×538, 22 KB) | FLUX.2 klein, seed 31877 | generated in this pass, wired via `.results-art` |
 | `coverart.png` | StarHermit cover (1200×675, 384 KB) | FLUX.2 klein, seed 70414 | regenerated in this pass, replacing the placeholder |
 | `favicon.svg`, `icon.png` | Tile mark | authored SVG / raster | shipped |
-| `vendor/three.module.js` | Renderer | Three.js, vendored | shipped |
+| `vendor/three.module.js` | Renderer | Three.js r160, vendored | shipped |
+| `vendor/three/addons/` | Post-processing, environment, rounded tiles | three@0.160.1 `examples/jsm`, vendored (MIT, `vendor/three/LICENSE`) | shipped |
 | Tile faces, star chart, felt, desk, props | In-scene visuals | procedural (canvas textures + Three.js primitives, seeded) | shipped |
 | `sfx/target-shift.opus` | `target-shift` cue | MOSS-SoundEffect v2.0 | generated in this pass, wired in `audio.js`/`main.js` |
 | `sfx/*.opus` (36 others) | Full event table in §9 | MOSS-SoundEffect v2.0 | shipped |
