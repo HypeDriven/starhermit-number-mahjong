@@ -587,3 +587,7 @@ and asserts 24 checkpoints plus a console error/warning budget of zero (a benign
 - **`holdToConfirm`** exists in the settings defaults but has no UI control and no behaviour.
 - **`tutorialSeen`, `sessionsPlayed`, `bestStreakDays`** are persisted but never written to.
 - **Telemetry** is collected into a 200-event in-memory ring and never leaves the device or is read.
+
+## Browser interference
+
+`browser-guard.js` (loaded from `index.html`) suppresses browser UI that gets in the way of play: the right-click context menu, the iOS long-press callout, copy / cut / paste, and page text selection. Text fields (inputs, textareas, selects, contenteditable) keep normal selection, context menu and clipboard behaviour.
