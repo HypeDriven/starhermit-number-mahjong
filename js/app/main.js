@@ -10,8 +10,11 @@ import { store } from './storage.js';
 import {
   platform, readLaunchToken, syncServerTime, startRefreshLoop,
   loadProfile, loadCloudSave, scheduleCloudSave, flushCloudSave,
-  submitVerifiedScore, fetchOnlineBoard,
+  fetchOnlineBoard,
+  canSignIn, signIn, inviteLink, avatarUrl,
+  getPlatformSettings, patchPlatformSettings, loadBindings,
 } from './platform.js';
+import { shStrings } from './gfx-strings.js';
 import { AudioEngine } from './audio.js';
 import { UI, ACHIEVEMENTS } from './ui.js';
 import { Renderer3D, webglAvailable } from './render3d.js';
@@ -19,6 +22,20 @@ import { choosePreset, resolve, detectPreset } from './gfx.js';
 import { hashString } from '../rules/rng.js';
 
 const $ = (s) => document.querySelector(s);
+
+// Keyboard actions (KeyboardEvent.code), mirrored as control.* lines in
+// starhermit.txt; the player's platform rebinds replace these at boot.
+export const KEY_DEFAULTS = {
+  back: ['Escape'], pause: ['KeyP'], hint: ['KeyH'], reshuffle: ['KeyR'], undo: ['KeyU'], camera: ['KeyC'],
+  left: ['ArrowLeft'], right: ['ArrowRight'], up: ['ArrowUp'], down: ['ArrowDown'],
+  choose: ['Enter', 'Space', 'NumpadEnter'],
+};
+export function keyLabel(code) {
+  const named = { Escape: 'Esc', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', Space: 'Space', Enter: 'Enter', NumpadEnter: 'Num Enter' };
+  return named[code] || String(code).replace(/^Key/, '').replace(/^Digit/, '');
+}
+// Player preferences mirrored to the platform settings KV.
+const KV_SETTINGS = ['music', 'effects', 'ambience', 'muted', 'gfx', 'reducedMotion', 'highContrast', 'largeText', 'leftHanded', 'palette', 'soundCaptions', 'holdToConfirm', 'timingAssist', 'board2d', 'camera', 'bindings', 'themeOverride'];
 
 // ---------------------------------------------------------------------------
 // host integration (StarHermit platform module): launch token from the URL
@@ -79,6 +96,17 @@ class App {
     this.telemetry = [];
     this.winStreak = 0;
     this.dailyTimer = null;
+    this.keys = structuredClone(KEY_DEFAULTS);
+  }
+
+  keyAction(code) {
+    for (const [a, codes] of Object.entries(this.keys)) if (codes.includes(code)) return a;
+    return null;
+  }
+  keyText(action) { return (this.keys[action] || []).map(keyLabel).join('/'); }
+  _reflectKeys() {
+    const t = { 'btn-hint': ['Hint', 'hint'], 'btn-reshuffle': ['Reshuffle', 'reshuffle'], 'btn-undo': ['Undo', 'undo'] };
+    for (const [id, [label, a]] of Object.entries(t)) { const b = document.getElementById(id); if (b) b.title = `${label} (${this.keyText(a)})`; }
   }
 
   // ------------------------------------------------------------- boot -----
@@ -86,7 +114,19 @@ class App {
   async boot() {
     const hosted = readLaunchToken();
     syncServerTime(); // fire and forget; daily uses best-known offset
+    let wasSignedIn = hosted;
+    platform.onAuth = (a) => {
+      if (a.signedIn === wasSignedIn) return; // token renewals change nothing visible
+      wasSignedIn = a.signedIn;
+      if (!a.signedIn) {
+        document.getElementById('account-chip').hidden = true;
+        this.ui.toast(shStrings().signedOut);
+      }
+      if (this.phase === 'title' && this.root.dataset.screen === 'title') this.toTitle('auth');
+    };
     if (hosted) this._initHosted();
+    loadBindings(KEY_DEFAULTS).then((b) => { this.keys = b; this._reflectKeys(); });
+    this._reflectKeys();
     this.ui.applyA11ySettings(this.settings);
     this.ui.applyTheme('ivory-dusk', this.settings.themeOverride);
 
@@ -137,9 +177,35 @@ class App {
       if (nick) nameEl.textContent = nick;
       if (this.phase === 'title' && this.root.dataset.screen === 'title') this.toTitle('profile');
     });
+    avatarUrl().then((url) => {
+      if (!url) return;
+      const img = document.getElementById('account-avatar');
+      img.src = url;
+      img.hidden = false;
+    });
     loadCloudSave().then((doc) => {
       if (doc) this._adoptCloudDoc(doc);
+    }).then(() => getPlatformSettings()).then((kv) => {
+      // the account's preferences (settings KV) win over local values
+      if (!kv) return;
+      const picked = {};
+      for (const k of KV_SETTINGS) if (kv[k] !== undefined && kv[k] !== null) picked[k] = kv[k];
+      if (Object.keys(picked).length) this._applySettingsDoc(picked);
     });
+  }
+
+  _pushPlatformSettings() {
+    const o = {};
+    for (const k of KV_SETTINGS) o[k] = this.settings[k] ?? null;
+    patchPlatformSettings(o);
+  }
+
+  async _copyInvite() {
+    const link = inviteLink();
+    if (!link) return;
+    const S = shStrings();
+    try { await navigator.clipboard.writeText(link); this.ui.toast(S.copied); }
+    catch { this.ui.toast(S.copyFailed, true); }
   }
 
   _adoptCloudDoc(doc) {
@@ -153,21 +219,23 @@ class App {
       return;
     }
     if (doc.savedAt) store.saveCloudMeta({ savedAt: doc.savedAt });
-    if (doc.settings && typeof doc.settings === 'object') {
-      Object.assign(this.settings, doc.settings);
-      store.saveSettings(this.settings);
-      this.audio.setMuted(this.settings.muted);
-      for (const ch of ['music', 'effects', 'ambience']) this.audio.setVolume(ch, this.settings[ch]);
-      this.ui.applyA11ySettings(this.settings);
-      this._migrateGfx();
-      if (this.renderer) this.renderer.setGraphics(this.settings.gfx);
-      this._reflectGfx();
-    }
+    if (doc.settings && typeof doc.settings === 'object') this._applySettingsDoc(doc.settings);
     if (doc.progress && typeof doc.progress === 'object') {
       this.progress = { ...this.progress, ...doc.progress };
       store.saveProgress(this.progress);
     }
     if (this.phase === 'title' && this.root.dataset.screen === 'title') this.toTitle('cloud');
+  }
+
+  _applySettingsDoc(settings) {
+    Object.assign(this.settings, settings);
+    store.saveSettings(this.settings);
+    this.audio.setMuted(this.settings.muted);
+    for (const ch of ['music', 'effects', 'ambience']) this.audio.setVolume(ch, this.settings[ch]);
+    this.ui.applyA11ySettings(this.settings);
+    this._migrateGfx();
+    if (this.renderer) this.renderer.setGraphics(this.settings.gfx);
+    this._reflectGfx();
   }
 
   cloudDoc() {
@@ -206,7 +274,8 @@ class App {
       dailyDate: iso,
       streak: this.winStreak,
       resumeInfo,
-      profile: platform.token ? (platform.nickname || 'Player ' + String(platform.userId || '').slice(0, 8)) : null,
+      profile: platform.token ? (platform.nickname || 'Player ' + String(platform.userId || '').slice(0, 6)) : null,
+      account: { signIn: canSignIn(), invite: !!inviteLink() },
     });
   }
 
@@ -560,9 +629,6 @@ class App {
       const boardKey = this._boardKey();
       placement = store.submitBoardEntry(boardKey, entry);
       if (this.content.kind === 'journey' && won) store.submitBoardEntry('journey.all', entry, 50);
-      // Ranked wins additionally go to the game's own replay-validating
-      // server when hosted; any failure leaves the local board as the record.
-      this._submitRanked(boardKey, entry);
     }
 
     const newAchievements = this._checkAchievements();
@@ -594,21 +660,6 @@ class App {
     if (this.content.kind === 'challenge') return 'challenge.' + this.content.id;
     if (this.content.kind === 'journey') return 'journey.' + this.content.id;
     return 'casual.' + this.content.kind;
-  }
-
-  // POST the closed replay envelope to server.js's verified /api/v1/scores.
-  // Only daily/journey/challenge rounds are server-verifiable; practice and
-  // lessons stay local, and any failure leaves the local board as the record.
-  _submitRanked(boardKey, entry) {
-    if (!platform.token || !['daily', 'journey', 'challenge'].includes(this.content.kind)) return;
-    const envelope = store.loadReplay(this.content.id);
-    if (!envelope) return;
-    submitVerifiedScore(boardKey, entry, envelope).then((res) => {
-      if (!res) return;
-      const note = document.getElementById('board-note');
-      if (note) note.textContent += res.rank != null ? ` · verified online, rank #${res.rank}` : ' · verified online';
-      this.ui.announce('Score verified online.');
-    });
   }
 
   _checkAchievements() {
@@ -915,6 +966,8 @@ class App {
       case 'settings': this._settingsReturn = 'title'; this.ui.showSettings(this.settings); break;
       case 'help': this._helpReturn = 'title'; this.ui.showHelp(this.settings.bindings || {}); break;
       case 'scores': this._showScores(); break;
+      case 'sh-sign-in': signIn(); break;
+      case 'sh-invite': this._copyInvite(); break;
       case 'begin': if (this.pendingContent) this.beginRound(this.pendingContent); break;
       case 'back':
         if (this._settingsReturn === 'pause' || this._helpReturn === 'pause') {
@@ -950,6 +1003,7 @@ class App {
           this.ui.showSettings(this.settings);
           this.cloudSave();
           flushCloudSave(); // mirror the erased state before any reload
+          this._pushPlatformSettings();
           this.ui.toast('All local data erased');
         }
         break;
@@ -998,6 +1052,7 @@ class App {
     if (e.type === 'change') {
       store.saveSettings(this.settings);
       this.cloudSave();
+      this._pushPlatformSettings();
       this._track('settings-change', { key: 'gfx.' + key });
       this.audio.play(isRange ? 'slider' : 'toggle');
       this.ui.refreshGfx(g, this.graphicsInfo());
@@ -1017,6 +1072,7 @@ class App {
     this.settings[key] = val;
     store.saveSettings(this.settings);
     this.cloudSave();
+    this._pushPlatformSettings();
     this._track('settings-change', { key });
     if (e.type === 'change') this.audio.play(e.target.type === 'range' ? 'slider' : 'toggle');
     // apply live
@@ -1054,26 +1110,27 @@ class App {
     window.addEventListener('keydown', (e) => {
       if (e.target.matches('input, select, textarea')) return;
       const inPlay = this.root.dataset.screen === 'play';
-      switch (e.key) {
-        case 'Escape':
+      const act = this.keyAction(e.code);
+      switch (act) {
+        case 'back':
           if (this.paused) this.resume();
           else if (inPlay && this.phase === 'active') {
             if (this.state?.selected != null) { this.dispatch({ type: 'select', tileId: this.state.selected }); }
             else this.pause();
           }
           break;
-        case 'p': case 'P': if (inPlay) { this.paused ? this.resume() : this.pause(); } break;
-        case 'h': case 'H': if (inPlay) this.dispatch({ type: 'hint' }); break;
-        case 'r': case 'R': if (inPlay) this.dispatch({ type: 'reshuffle' }); break;
-        case 'u': case 'U': if (inPlay) this.dispatch({ type: 'undo' }); break;
-        case 'c': case 'C': if (this.renderer) this.renderer.resetCamera(); break;
-        case 'ArrowLeft': case 'ArrowRight': case 'ArrowUp': case 'ArrowDown':
+        case 'pause': if (inPlay) { this.paused ? this.resume() : this.pause(); } break;
+        case 'hint': if (inPlay) this.dispatch({ type: 'hint' }); break;
+        case 'reshuffle': if (inPlay) this.dispatch({ type: 'reshuffle' }); break;
+        case 'undo': if (inPlay) this.dispatch({ type: 'undo' }); break;
+        case 'camera': if (this.renderer) this.renderer.resetCamera(); break;
+        case 'left': case 'right': case 'up': case 'down':
           if (inPlay && this.phase === 'active') {
             e.preventDefault();
-            this._moveFocus({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key]);
+            this._moveFocus({ left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }[act]);
           }
           break;
-        case 'Enter': case ' ':
+        case 'choose':
           if (inPlay && this.phase === 'active' && this.focusTileId != null) {
             e.preventDefault();
             this.chooseTile(this.focusTileId);
@@ -1159,6 +1216,8 @@ class App {
           if (pad.buttons[i].pressed) {
             this.settings.bindings = { ...(this.settings.bindings || {}), [action]: `b${i}` };
             store.saveSettings(this.settings);
+            this.cloudSave();
+            this._pushPlatformSettings();
             btnEl.textContent = `b${i}`;
             return;
           }

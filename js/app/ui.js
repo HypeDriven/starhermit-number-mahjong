@@ -6,7 +6,7 @@ import { describeRule, describeRuleShort, JOURNEY, LESSONS, CHALLENGES, THEMES, 
 import { exposedTiles, legalPairs, currentTarget, remainingTiles, score } from '../rules/engine.js';
 import { BUILD_VERSION } from '../rules/replay.js';
 import { CATEGORIES, PRESETS, resolve, presetTier, describe, detectPreset } from './gfx.js';
-import { gfxStrings, fill } from './gfx-strings.js';
+import { gfxStrings, fill, shStrings } from './gfx-strings.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -73,7 +73,8 @@ export class UI {
 
   // -------------------------------------------------------------- title ---
 
-  showTitle({ journeyDone, dailyDone, dailyDate, streak, resumeInfo, profile }) {
+  showTitle({ journeyDone, dailyDone, dailyDate, streak, resumeInfo, profile, account = {} }) {
+    const S = shStrings();
     const next = JOURNEY.find(s => !journeyDone[s.id]);
     this.show(`
       <div class="title-hero">
@@ -92,6 +93,8 @@ export class UI {
         <button data-act="scores" role="menuitem">Score Chase <small>leaderboards</small></button>
         <button data-act="settings" role="menuitem">Settings</button>
         <button data-act="help" role="menuitem">Help &amp; Rules</button>
+        ${account.signIn ? `<button data-act="sh-sign-in" role="menuitem">${this.esc(S.signIn)} <small>${this.esc(S.signInSub)}</small></button>` : ''}
+        ${account.invite ? `<button data-act="sh-invite" role="menuitem">${this.esc(S.invite)} <small>${this.esc(S.inviteSub)}</small></button>` : ''}
       </div>
       <p class="title-status">${profile ? `Playing as ${this.esc(profile)} · ` : ''}${streak > 1 ? `Win streak: ${streak}. ` : ''}v${BUILD_VERSION} · deterministic seeds · offline capable</p>
     `, 'title');
@@ -342,6 +345,7 @@ export class UI {
   // ------------------------------------------------------------ settings ---
 
   showSettings(s) {
+    const k = (a) => this.app.keyText(a);
     const row = (label, control) => `<div class="setting-row"><label>${label}</label>${control}</div>`;
     const slider = (key, val) => `<input type="range" min="0" max="1" step="0.05" value="${val}" data-set="${key}" aria-label="${key}">`;
     const check = (key, val, label) => `<input type="checkbox" ${val ? 'checked' : ''} data-set="${key}" aria-label="${label || key}">`;
@@ -377,7 +381,7 @@ export class UI {
         ${row('Replay tutorials', `<button data-act="reset-tutorials">Reset</button>`)}
       </div>
       <h2>Controls</h2>
-      <p class="meta">Keyboard: arrows or Tab move focus · Enter/Space select · Esc pause/cancel · H hint · R reshuffle · U undo · C camera. Gamepad: d-pad/stick move · A select · B cancel · Start pause · Y hint · X undo.</p>
+      <p class="meta">Keyboard: ${this.esc([k('left'), k('right'), k('up'), k('down')].join(' '))} or Tab move focus · ${this.esc(k('choose'))} select · ${this.esc(k('back'))} pause/cancel · ${this.esc(k('pause'))} pause · ${this.esc(k('hint'))} hint · ${this.esc(k('reshuffle'))} reshuffle · ${this.esc(k('undo'))} undo · ${this.esc(k('camera'))} camera. Gamepad: d-pad/stick move · A select · B cancel · Start pause · Y hint · X undo.</p>
       <div class="settings-grid" id="gamepad-remap">
         ${['confirm', 'cancel', 'pause', 'hint', 'undo'].map(a => row(`Gamepad: ${a}`, `<button data-remap="${a}">${this.esc((s.bindings || {})[a] || 'default')}</button>`)).join('')}
       </div>
@@ -445,6 +449,7 @@ export class UI {
   // ---------------------------------------------------------------- help ---
 
   showHelp(bindings) {
+    const k = (a) => this.esc(this.app.keyText(a));
     this.show(`
       <h1>Help &amp; Rules</h1>
       <div class="card-grid">
@@ -452,7 +457,7 @@ export class UI {
         <div class="card"><h3>▤ Exposure</h3><p>Only the top tile of each stack can be played. In side-locked rounds, a tile is also locked while neighbours press on <em>both</em> its sides — one open side is enough.</p></div>
         <div class="card"><h3>✦ Scoring</h3><p>Each pair scores 100. Removing pairs quickly adds up to 50 speed bonus. Unbroken chains of pairs (no hints, no misses) add up to 150 per pair. Clearing the board adds 500, plus a time bonus in timed rounds. Exploring never costs points.</p></div>
         <div class="card"><h3>⚑ Stuck?</h3><p>If no legal pair exists and no reshuffles remain, the round ends. Hints (H) reveal one legal pair. Reshuffles (R) redeal the remaining tiles solvably. Practice and Journey allow undo (U).</p></div>
-        <div class="card"><h3>⌨ Controls</h3><p>Pointer or touch: tap a tile, tap its partner. Keyboard: arrows move, Enter selects, Esc cancels or pauses. Gamepad: d-pad moves, ${this.esc(bindings.confirm || 'A')} confirms, ${this.esc(bindings.cancel || 'B')} cancels, Start pauses. H hints, R reshuffles, U undoes, C resets the camera.</p></div>
+        <div class="card"><h3>⌨ Controls</h3><p>Pointer or touch: tap a tile, tap its partner. Keyboard: ${k('left')} ${k('right')} ${k('up')} ${k('down')} move, ${k('choose')} selects, ${k('back')} cancels or pauses. Gamepad: d-pad moves, ${this.esc(bindings.confirm || 'A')} confirms, ${this.esc(bindings.cancel || 'B')} cancels, Start pauses. ${k('hint')} hints, ${k('reshuffle')} reshuffles, ${k('undo')} undoes, ${k('camera')} resets the camera.</p></div>
         <div class="card"><h3>⚖ Fair play</h3><p>Every board is generated from a visible seed and proven solvable offline. Ranked rounds disallow undo and are submitted with a replay log for validation.</p></div>
       </div>
       <div class="menu-stack"><button data-act="back">Back</button></div>

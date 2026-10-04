@@ -10,8 +10,9 @@
  * tile screen positions); every action is a real click/keypress on a visible
  * element. Runs two passes: desktop 1280x800 and mobile 390x844 (touch).
  *
- * The repo's server.js is a StarHermit authoritative game script, so this
- * test embeds its own minimal static server on an ephemeral port.
+ * Embeds its own plain static server on an ephemeral port (no /api routes);
+ * a standalone load must make zero same-origin /api or /ws requests, which
+ * each pass asserts.
  *
  *   node tests/e2e.mjs     (npm run test:e2e)
  */
@@ -50,12 +51,6 @@ const MIME = {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://x');
-    // platform time endpoint the game expects from the StarHermit host
-    if (url.pathname === '/api/v1/time') {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ utcMs: Date.now() }));
-      return;
-    }
     let file = path.normalize(decodeURIComponent(url.pathname));
     if (file === '/' || file === '\\') file = '/index.html';
     const abs = path.join(ROOT, file);
@@ -109,6 +104,11 @@ async function runPass(browser, vpName, contextOpts) {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (/^(127\.0\.0\.1|localhost)$/.test(u.hostname) && /^\/(api|ws)(\/|$)/.test(u.pathname)) errors.push(`own-server request: ${r.method()} ${u.pathname}`);
+  });
+  page.on('websocket', (ws) => errors.push(`websocket opened: ${ws.url()}`));
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`console ${m.type()}: ${m.text()}`); });
 
   try {

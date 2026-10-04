@@ -17,7 +17,7 @@ and keep lifting until the felt is bare.
 | Session | 60-90 s for a lesson or an early journey stage; 3-5 min for a daily or a capstone |
 | Platforms | Desktop and mobile browsers, portrait and landscape; keyboard, pointer, touch, gamepad |
 | Rendering | Three.js r160 (`vendor/three.module.js` plus same-revision addons under `vendor/three/addons/`, resolved through an import map) over a canvas, with a permanently present semantic DOM board as fallback and screen-reader surface |
-| Networking | Offline-first; hosted on StarHermit the client authenticates with the `#game_token=` launch token (Bearer on every call) and uses profile, cloud-saves, and its own server's replay-verified score route; standalone play makes only a same-origin `GET /api/v1/time` |
+| Networking | Offline-first; hosted on StarHermit the client authenticates with the `#game_token=` launch token (Bearer on every call) and uses profile, cloud-saves, settings, controls, the read-only leaderboard and `GET /api/v1/time`; standalone play makes no network request (device clock, local boards) |
 
 ### File map
 
@@ -38,8 +38,9 @@ and keep lifting until the felt is bare.
 | `vendor/three/addons/` | three@0.160.1 addons: EffectComposer, RenderPass, ShaderPass, OutputPass, GTAOPass, UnrealBloomPass, SMAAPass, FXAA/SMAA/GTAO shaders, RoomEnvironment, RoundedBoxGeometry |
 | `js/app/audio.js` | WebAudio buses, sample playback from `sfx/`, procedural fallback voices, ambience, generative music, captions |
 | `js/app/storage.js` | Checksummed, versioned `localStorage` with in-memory fallback: settings, progress, snapshots, replays, local boards |
-| `js/app/platform.js` | StarHermit host integration (no-op without a launch token): fragment token read/strip, Bearer auth + 45-min refresh, profile nickname, zip+base64 cloud-save mirror (debounced, pagehide flush), verified score POST, read-only platform leaderboard |
-| `server.js` | StarHermit game script: static host, `/api/v1/time`, replay-verified `/api/v1/scores` |
+| `js/app/platform.js` | Adapter over `starhermit-sdk.js` (no-op without a launch token): token, profile nickname/avatar, `game:<slug>` cloud-save mirror (debounced, pagehide flush), settings KV, keyboard bindings, sign-in/invite helpers, read-only platform leaderboard; platform clock sync when signed in |
+| `starhermit-sdk.js` | Unmodified copy of the canonical StarHermit client (`window.StarHermit`) |
+| `server.js` | Local static host; its legacy `/api/v1/time` and `/api/v1/scores` routes are not called by the client |
 | `tests/run-tests.mjs` | 87 headless assertions over rules, content, replay, storage |
 | `tests/gfx.test.mjs` | `node --test` unit tests for the graphics model and its locale strings |
 | `tests/browser-test.mjs` | 30 assertions in headless Chrome over the real DOM and canvas |
@@ -433,36 +434,47 @@ seeds, scores and times formatted only at presentation time from integers held i
 ## 12. StarHermit integration
 
 `starhermit.txt` declares `name`, `launch=index.html`, `owner`, `server=server.js`, `version`,
-`cover=coverart.png`, per https://wiki.starhermit.com/ packaging conventions.
+`cover`, and one `control.<action>=<codes> | <label>` line per keyboard action, per
+https://wiki.starhermit.com/ packaging conventions.
 
-**Used.** Static launch from the platform; the launch token is read from the URL
-fragment `#game_token=` (read once, then stripped; `?token=` / `?launch=` /
-`window.__STARHERMIT__` remain as local-dev fallbacks) and decoded for its
-`sub` / `game_scope` claims, held in memory and never persisted; hosted calls
-carry `Authorization: Bearer`, with a 45-min `POST /api/v1/games/{slug}/launch-token`
-refresh (60 s retry on failure). `GET /api/v1/time` (clock offset for the UTC day
-boundary) and the profile nickname via `GET /api/v1/users/{sub}/profile` (never
-`/api/v1/me`, never usernames; `Player ` + id8 fallback) shown in the account chip
-and title status. Cloud save mirrors progress+settings to
-`GET`/`PUT /api/v1/me/cloud-saves/{slug}` as a stored zip+base64 doc (2 s debounce,
-`pagehide` flush, remote-preferred load guarded by the last-synced timestamp;
-localStorage stays the offline cache; sync status in the account chip). The server
-script `server.js`, which serves the distribution, answers `/api/v1/time`, and
-validates `POST /api/v1/scores` by rebuilding the content itself
-(`dailyContent` / `challengeContent` / `JOURNEY.find`) and re-running the submitted
-replay envelope through the real engine — accepting only `won` states whose
-reported score equals the replayed `scoreParts` sum, with per-IP token-bucket rate
-limits and a 256 KB body cap; the hosted client POSTs ranked wins there with the
-replay log and degrades to the local board when the route is absent. The platform
-leaderboard is read-only: `GET /api/v1/games/{slug}` → `leaderboardId`, then
-`GET /api/v1/leaderboards/{leaderboardId}/entries` with userIds resolved to nicknames.
+All platform traffic goes through the shared SDK `starhermit-sdk.js` (an unmodified copy of the
+canonical client, loaded before the game modules as `window.StarHermit`); `js/app/platform.js`
+adapts it to the game. Without a token the SDK makes no request.
 
-**Not used.** Platform score submission to script-owned leaderboards (the client
-only reads), presence, matchmaking, entitlements, IAP, and platform achievement
-unlock routes. Leaderboard records remain personal-best-first (`storage.js` board
-keys `daily.<iso>`, `journey.<id>`, `journey.all`, `challenge.<id>`,
-`casual.<kind>`); without a `leaderboardId` only local records show. Achievements
-are local and unlocked from progress only, mirrored in the cloud save doc.
+**Used (hosted — a launch token was read).**
+- *Launch token* — `StarHermit.init()` reads `#game_token=` (library launch) or `#access_token=`
+  (direct sign-in return) once and strips it; the slug is the `game_scope` claim. The SDK renews
+  the token before expiry; if renewal is refused the account chip hides, a "signed out — playing
+  locally" toast shows, the title re-offers sign-in and play continues on localStorage.
+- *Sign-in* — on `*.starhermit.com` without a token the title menu shows **Sign in with
+  StarHermit**; hidden when signed in and when running locally.
+- *Identity* — the profile nickname (fallback `Player ` + id prefix) and avatar show in the
+  account chip and the title status line.
+- *Cloud save* — progress + settings mirror to the `game:<slug>` slot (2 s debounce, `pagehide`
+  flush, remote-preferred load guarded by the last-synced timestamp; localStorage stays the
+  offline cache; sync status in the account chip).
+- *Settings KV* — audio levels, mute, graphics, camera/board view, theme, accessibility options
+  and gamepad remaps are patched to the per-player settings store on every change and applied
+  after the cloud doc on boot (the account value wins).
+- *Invite* — signed in, the title menu shows **Invite a friend**, which copies
+  `StarHermit.inviteLink()` to the clipboard and confirms with a toast.
+- *Controls* — keyboard input is routed by `KeyboardEvent.code` through
+  `StarHermit.loadBindings()` (platform rebinds over the `control.*` defaults); Settings →
+  Controls, the help card and the action-button tooltips show the effective keys.
+- *Leaderboard (read-only)* — the game's first platform board with nickname-resolved rows on the
+  Score Chase screen; the client never submits platform scores.
+
+The sign-in/invite labels and toasts come from `js/app/gfx-strings.js` in all nine locales.
+
+**Standalone (no token).** The client makes no request beyond its static files: the UTC day uses
+the device clock and every result stays on the local boards. Signed in, the SDK reads
+`GET /api/v1/time` for the clock offset. No client ever POSTs scores; `server.js` (with its legacy
+replay-validating `/api/v1/scores`) is only a local static host.
+
+**Not used.** Sessions, matchmaking, friends picker, session chat, replays, realtime and voice — the
+game is single-player and `server.js` is not a platform session script. Achievements are local,
+unlocked from progress and mirrored in the cloud doc (no server declares platform achievements).
+Leaderboard records remain personal-best-first locally (`storage.js` board keys).
 
 ---
 
@@ -582,8 +594,8 @@ and asserts 24 checkpoints plus a console error/warning budget of zero (a benign
 
 - **Localization** (§10): no string catalogue, no locale negotiation, `<html lang="en">` fixed.
 - **Platform leaderboard submission**: clients cannot post to script-owned leaderboards;
-  ranked wins go to the game's own replay-validated `/api/v1/scores` when hosted, and the
-  platform leaderboard is read-only.
+  ranked wins stay on the local boards (cloud-saved when signed in), and the platform
+  leaderboard is read-only.
 - **`holdToConfirm`** exists in the settings defaults but has no UI control and no behaviour.
 - **`tutorialSeen`, `sessionsPlayed`, `bestStreakDays`** are persisted but never written to.
 - **Telemetry** is collected into a 200-event in-memory ring and never leaves the device or is read.

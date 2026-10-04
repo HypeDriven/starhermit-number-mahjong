@@ -205,3 +205,22 @@ export function gfxStrings(locale) {
 export function fill(str, vars) {
   return String(str).replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? ''));
 }
+
+// StarHermit account strings (sign-in / invite buttons and toasts) in every
+// shipping locale; same locale pick as the Graphics section.
+const SH = {
+  'en-US': { signIn: 'Sign in with StarHermit', signInSub: 'sync progress and settings', invite: 'Invite a friend', inviteSub: 'copy your invite link', copied: 'Invite link copied to the clipboard', copyFailed: 'Could not copy the invite link', signedOut: 'Signed out — playing locally' },
+  'en-GB': { signIn: 'Sign in with StarHermit', signInSub: 'sync progress and settings', invite: 'Invite a friend', inviteSub: 'copy your invite link', copied: 'Invite link copied to the clipboard', copyFailed: 'Couldn’t copy the invite link', signedOut: 'Signed out — playing locally' },
+  'es-419': { signIn: 'Iniciar sesión con StarHermit', signInSub: 'sincroniza progreso y ajustes', invite: 'Invitar a un amigo', inviteSub: 'copia tu enlace de invitación', copied: 'Enlace de invitación copiado al portapapeles', copyFailed: 'No se pudo copiar el enlace de invitación', signedOut: 'Sesión cerrada: juegas en modo local' },
+  'es-ES': { signIn: 'Iniciar sesión con StarHermit', signInSub: 'sincroniza progreso y ajustes', invite: 'Invitar a un amigo', inviteSub: 'copia tu enlace de invitación', copied: 'Enlace de invitación copiado al portapapeles', copyFailed: 'No se ha podido copiar el enlace de invitación', signedOut: 'Sesión cerrada: juegas en local' },
+  'de-DE': { signIn: 'Mit StarHermit anmelden', signInSub: 'Fortschritt und Einstellungen synchronisieren', invite: 'Freund einladen', inviteSub: 'Einladungslink kopieren', copied: 'Einladungslink in die Zwischenablage kopiert', copyFailed: 'Einladungslink konnte nicht kopiert werden', signedOut: 'Abgemeldet – du spielst lokal weiter' },
+  'fr-FR': { signIn: 'Se connecter avec StarHermit', signInSub: 'synchroniser progression et réglages', invite: 'Inviter un ami', inviteSub: 'copier votre lien d’invitation', copied: 'Lien d’invitation copié dans le presse-papiers', copyFailed: 'Impossible de copier le lien d’invitation', signedOut: 'Déconnecté — vous jouez en local' },
+  'fr-CA': { signIn: 'Se connecter avec StarHermit', signInSub: 'synchroniser progression et paramètres', invite: 'Inviter un ami', inviteSub: 'copier votre lien d’invitation', copied: 'Lien d’invitation copié dans le presse-papiers', copyFailed: 'Impossible de copier le lien d’invitation', signedOut: 'Déconnecté — vous jouez en local' },
+  'pt-BR': { signIn: 'Entrar com StarHermit', signInSub: 'sincronize progresso e configurações', invite: 'Convidar um amigo', inviteSub: 'copie seu link de convite', copied: 'Link de convite copiado para a área de transferência', copyFailed: 'Não foi possível copiar o link de convite', signedOut: 'Sessão encerrada — jogando localmente' },
+  'it-IT': { signIn: 'Accedi con StarHermit', signInSub: 'sincronizza progressi e impostazioni', invite: 'Invita un amico', inviteSub: 'copia il tuo link di invito', copied: 'Link di invito copiato negli appunti', copyFailed: 'Impossibile copiare il link di invito', signedOut: 'Disconnesso: giochi in locale' },
+};
+export const SH_LOCALES = Object.keys(SH);
+export function shStrings(locale) {
+  const loc = locale || (typeof navigator !== 'undefined' ? pickLocale(navigator.languages?.length ? navigator.languages : [navigator.language]) : 'en-US');
+  return SH[loc] || SH['en-US'];
+}
