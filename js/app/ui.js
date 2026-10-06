@@ -62,6 +62,9 @@ export class UI {
     this.setScreen(screenName);
     const first = this.root.querySelector('button, [href], input, select');
     if (first) first.focus({ preventScroll: true });
+    // #screen-root is reused for every screen: a new screen opens at its top,
+    // not at the previous screen's scroll offset.
+    this.root.scrollTop = 0;
   }
 
   esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
