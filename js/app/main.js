@@ -1197,8 +1197,10 @@ class App {
       const rect = $('#board-region').getBoundingClientRect();
       if (pos) {
         chip.style.display = 'block';
-        chip.style.left = (pos.x - rect.left) + 'px';
-        chip.style.top = (pos.y - rect.top) + 'px';
+        // the chip is zoomed by --ui-scale: its left/top are in its own (zoomed) px
+        const z = (window.UIScale && window.UIScale.value) || 1;
+        chip.style.left = (pos.x - rect.left) / z + 'px';
+        chip.style.top = (pos.y - rect.top) / z + 'px';
         chip.textContent = t.value;
       }
     }

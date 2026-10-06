@@ -265,6 +265,12 @@ floats bottom-right (bottom-left with *Left-handed controls*). All four edges us
 the score, the timer and the action buttons must never be clipped, and the canvas is never allowed to
 cover the toast stack or the lesson banner.
 
+**Large screens.** `ui-scale.js` sets `--ui-scale` (exactly 1 up to a 1600×1000 viewport, then
+`min(w/1600, h/1000)`, capped at 2.5). The HUD, action rail, 2D board, countdown, focus chip, screens,
+overlays, lesson banner, toasts and account chip zoom by it (vh/vw inside divided; the focus chip's
+projected position is divided by the scale), screen columns centre vertically when they fit, and the 3D
+canvas stays unzoomed. Outside play, toasts sit at the top so they never cover the bottom action buttons.
+
 ---
 
 ## 8. Art direction
