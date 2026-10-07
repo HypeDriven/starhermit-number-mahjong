@@ -457,7 +457,8 @@ adapts it to the game. Without a token the SDK makes no request.
 - *Identity* — the profile nickname (fallback `Player ` + id prefix) and avatar show in the
   account chip and the title status line.
 - *Cloud save* — progress + settings mirror to the `game:<slug>` slot (2 s debounce, `pagehide`
-  flush, remote-preferred load guarded by the last-synced timestamp; localStorage stays the
+  flush, remote-preferred load guarded by the last-synced timestamp, with
+  nothing written until that load settles; localStorage stays the
   offline cache; sync status in the account chip).
 - *Settings KV* — audio levels, mute, graphics, camera/board view, theme, accessibility options
   and gamepad remaps are patched to the per-player settings store on every change and applied

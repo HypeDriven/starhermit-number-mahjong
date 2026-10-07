@@ -183,8 +183,15 @@ class App {
       img.src = url;
       img.hidden = false;
     });
-    loadCloudSave().then((doc) => {
-      if (doc) this._adoptCloudDoc(doc);
+    // Cloud saves are held until the slot has been compared: one queued
+    // during the load would still be written over a newer remote doc.
+    this._cloudLoading = true;
+    loadCloudSave().catch(() => null).then((doc) => {
+      this._cloudLoading = false;
+      const held = this._cloudHeld;
+      this._cloudHeld = false;
+      const adopted = doc ? this._adoptCloudDoc(doc) : false;
+      if (held && !adopted) this.cloudSave(); // a held save is stale once remote is adopted
     }).then(() => getPlatformSettings()).then((kv) => {
       // the account's preferences (settings KV) win over local values
       if (!kv) return;
@@ -216,7 +223,7 @@ class App {
     const meta = store.loadCloudMeta();
     if (meta?.savedAt && doc.savedAt && doc.savedAt < meta.savedAt) {
       this.cloudSave();
-      return;
+      return false;
     }
     if (doc.savedAt) store.saveCloudMeta({ savedAt: doc.savedAt });
     if (doc.settings && typeof doc.settings === 'object') this._applySettingsDoc(doc.settings);
@@ -225,6 +232,7 @@ class App {
       store.saveProgress(this.progress);
     }
     if (this.phase === 'title' && this.root.dataset.screen === 'title') this.toTitle('cloud');
+    return true;
   }
 
   _applySettingsDoc(settings) {
@@ -242,7 +250,10 @@ class App {
     return { version: 1, savedAt: Date.now(), progress: this.progress, settings: this.settings };
   }
 
-  cloudSave() { scheduleCloudSave(this.cloudDoc()); }
+  cloudSave() {
+    if (this._cloudLoading) { this._cloudHeld = true; return; }
+    scheduleCloudSave(this.cloudDoc());
+  }
 
   caption(text) {
     const el = $('#sound-caption');
