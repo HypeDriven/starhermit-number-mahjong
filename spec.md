@@ -17,7 +17,7 @@ and keep lifting until the felt is bare.
 | Session | 60-90 s for a lesson or an early journey stage; 3-5 min for a daily or a capstone |
 | Platforms | Desktop and mobile browsers, portrait and landscape; keyboard, pointer, touch, gamepad |
 | Rendering | Three.js r160 (`vendor/three.module.js` plus same-revision addons under `vendor/three/addons/`, resolved through an import map) over a canvas, with a permanently present semantic DOM board as fallback and screen-reader surface |
-| Networking | Offline-first; hosted on StarHermit the client authenticates with the `#game_token=` launch token (Bearer on every call) and uses profile, cloud-saves, settings, controls, the read-only leaderboard and `GET /api/v1/time`; standalone play makes no network request (device clock, local boards) |
+| Networking | Offline-first; hosted on StarHermit the client authenticates with the `#game_token=` launch token (Bearer on every call) and uses profile, cloud-saves, settings, controls, the leaderboard (read, and score posts after ranked rounds) and `GET /api/v1/time`; standalone play makes no network request (device clock, local boards) |
 
 ### File map
 
@@ -38,8 +38,9 @@ and keep lifting until the felt is bare.
 | `vendor/three/addons/` | three@0.160.1 addons: EffectComposer, RenderPass, ShaderPass, OutputPass, GTAOPass, UnrealBloomPass, SMAAPass, FXAA/SMAA/GTAO shaders, RoomEnvironment, RoundedBoxGeometry |
 | `js/app/audio.js` | WebAudio buses, sample playback from `sfx/`, procedural fallback voices, ambience, generative music, captions |
 | `js/app/storage.js` | Checksummed, versioned `localStorage` with in-memory fallback: settings, progress, snapshots, replays, local boards |
-| `js/app/platform.js` | Adapter over `starhermit-sdk.js` (no-op without a launch token): token, profile nickname/avatar, `game:<slug>` cloud-save mirror (debounced, pagehide flush), settings KV, keyboard bindings, sign-in/invite helpers, read-only platform leaderboard; platform clock sync when signed in |
+| `js/app/platform.js` | Adapter over `starhermit-sdk.js` (no-op without a launch token): token, profile nickname/avatar, `game:<slug>` cloud-save mirror (debounced, pagehide flush), settings KV, keyboard bindings, sign-in/invite helpers, platform leaderboard read + score post; platform clock sync when signed in |
 | `starhermit-sdk.js` | Unmodified copy of the canonical StarHermit client (`window.StarHermit`) |
+| `score-script.js` | StarHermit platform script (`server=`): range-checks a finished round's total sent through `StarHermit.submitScores` and posts it to the `high-score` leaderboard (canonical copy in the games repo's `tools/score-script.js`) |
 | `server.js` | Local static host; its legacy `/api/v1/time` and `/api/v1/scores` routes are not called by the client |
 | `tests/run-tests.mjs` | 87 headless assertions over rules, content, replay, storage |
 | `tests/gfx.test.mjs` | `node --test` unit tests for the graphics model and its locale strings |
@@ -439,7 +440,7 @@ seeds, scores and times formatted only at presentation time from integers held i
 
 ## 12. StarHermit integration
 
-`starhermit.txt` declares `name`, `launch=index.html`, `owner`, `server=server.js`, `version`,
+`starhermit.txt` declares `name`, `launch=index.html`, `owner`, `server=score-script.js`, `version`,
 `cover`, and one `control.<action>=<codes> | <label>` line per keyboard action, per
 https://wiki.starhermit.com/ packaging conventions.
 
@@ -468,18 +469,22 @@ adapts it to the game. Without a token the SDK makes no request.
 - *Controls* — keyboard input is routed by `KeyboardEvent.code` through
   `StarHermit.loadBindings()` (platform rebinds over the `control.*` defaults); Settings →
   Controls, the help card and the action-button tooltips show the effective keys.
-- *Leaderboard (read-only)* — the game's first platform board with nickname-resolved rows on the
-  Score Chase screen; the client never submits platform scores.
+- *Leaderboard* — the game's first platform board with nickname-resolved rows on the
+  Score Chase screen. Every finished Daily round (won or lost) and every won Challenge posts its
+  score total through `StarHermit.submitScores({ 'high-score': total })`; `score-script.js` posts it
+  to the `high-score` board (integer, higher is better, 0–100,000). The results screen shows
+  "Posting score to the leaderboard…", then "Leaderboard rank: #N" (or "Score posted to the
+  leaderboard." / "Score not posted to the leaderboard."). Journey, Practice and Learn post nothing.
 
-The sign-in/invite labels and toasts come from `js/app/gfx-strings.js` in all nine locales.
+The sign-in/invite labels, toasts and leaderboard lines come from `js/app/gfx-strings.js` in all nine locales.
 
 **Standalone (no token).** The client makes no request beyond its static files: the UTC day uses
 the device clock and every result stays on the local boards. Signed in, the SDK reads
-`GET /api/v1/time` for the clock offset. No client ever POSTs scores; `server.js` (with its legacy
-replay-validating `/api/v1/scores`) is only a local static host.
+`GET /api/v1/time` for the clock offset and posts ranked results through `submitScores`;
+`server.js` (with its legacy replay-validating `/api/v1/scores`) is only a local static host.
 
-**Not used.** Sessions, matchmaking, friends picker, session chat, replays, realtime and voice — the
-game is single-player and `server.js` is not a platform session script. Achievements are local,
+**Not used.** Matchmaking, friends picker, session chat, replays, realtime and voice — the
+game is single-player; its only platform session is the short practice session that posts a score. Achievements are local,
 unlocked from progress and mirrored in the cloud doc (no server declares platform achievements).
 Leaderboard records remain personal-best-first locally (`storage.js` board keys).
 
@@ -581,10 +586,9 @@ and asserts 24 checkpoints plus a console error/warning budget of zero (a benign
 ## 16. Known limitations
 
 - **Single language.** All strings are inline English; the locale set in §10 is not yet implemented.
-- **Leaderboards are personal-best-first.** `server.js` verifies and stores ranked
-  submissions, but only when the client runs hosted with a launch token and the
-  host serves the script; otherwise every board a player sees is local to their
-  device.
+- **Leaderboards are personal-best-first locally.** Signed in, Daily rounds and won Challenges
+  reach the platform `high-score` board (range-checked, not replay-verified); every other board a
+  player sees is local to their device.
 - **`localStorage` is the offline cache, not the only copy when hosted.** On
   StarHermit, progress and settings mirror to the platform cloud-save slot;
   clearing site data still erases the local copy, and there is no export.
@@ -600,9 +604,6 @@ and asserts 24 checkpoints plus a console error/warning budget of zero (a benign
 ## Design intent not yet implemented
 
 - **Localization** (§10): no string catalogue, no locale negotiation, `<html lang="en">` fixed.
-- **Platform leaderboard submission**: clients cannot post to script-owned leaderboards;
-  ranked wins stay on the local boards (cloud-saved when signed in), and the platform
-  leaderboard is read-only.
 - **`holdToConfirm`** exists in the settings defaults but has no UI control and no behaviour.
 - **`tutorialSeen`, `sessionsPlayed`, `bestStreakDays`** are persisted but never written to.
 - **Telemetry** is collected into a 200-event in-memory ring and never leaves the device or is read.

@@ -10,7 +10,7 @@ import { store } from './storage.js';
 import {
   platform, readLaunchToken, syncServerTime, startRefreshLoop,
   loadProfile, loadCloudSave, scheduleCloudSave, flushCloudSave,
-  fetchOnlineBoard,
+  fetchOnlineBoard, submitScore,
   canSignIn, signIn, inviteLink, avatarUrl,
   getPlatformSettings, patchPlatformSettings, loadBindings,
 } from './platform.js';
@@ -646,10 +646,23 @@ class App {
     store.saveProgress(this.progress);
     this.cloudSave();
 
+    // signed in: every finished Daily round and every won Challenge posts its
+    // total to the platform high-score board; the results screen shows the rank
+    const postLb = !!platform.userId && (this.content.kind === 'daily' || (this.content.kind === 'challenge' && won));
     this.ui.showResults({
       state: st, content: this.content, breakdown, stars,
       newAchievements, boardPlacement: placement, par: this.content.par,
+      leaderboard: postLb ? shStrings().lbPosting : null,
     });
+    if (postLb) {
+      const round = st;
+      submitScore(breakdown.total).then((r) => {
+        if (this.state !== round || this.phase !== 'results') return;
+        const t = shStrings();
+        const line = document.getElementById('results-lb');
+        if (line) line.textContent = !r.posted ? t.lbNotPosted : r.rank ? t.lbRank.replace('{rank}', r.rank) : t.lbPosted;
+      });
+    }
     this.ui.announce(`${st.status === 'won' ? 'Round complete' : 'Round over'}. Total score ${breakdown.total}.`, true);
     if (won) this.audio.play('win-stinger');
     if (stars != null && won) this.audio.play('star-rating');

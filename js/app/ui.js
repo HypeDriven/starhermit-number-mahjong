@@ -313,7 +313,7 @@ export class UI {
 
   // -------------------------------------------------------------- results --
 
-  showResults({ state, content, breakdown, stars, newAchievements, boardPlacement, par }) {
+  showResults({ state, content, breakdown, stars, newAchievements, boardPlacement, par, leaderboard = null }) {
     const won = state.status === 'won';
     const headline = won ? 'Board Cleared' : ({ 'no-moves': 'No Moves Remain', 'out-of-moves': 'Out of Moves', 'time-up': 'Time Is Up', 'abandoned': 'Round Left' })[state.reason] || 'Round Over';
     const rows = [
@@ -335,6 +335,7 @@ export class UI {
         <tr class="total"><td>Total</td><td>${breakdown.total}</td></tr>
       </table>
       <p class="meta">Par: ${par.score} pts in ${this.fmtMs(par.timeMs)}<span id="board-note">${boardPlacement != null && boardPlacement >= 0 ? ` · placed #${boardPlacement + 1} on the local board` : ''}</span></p>
+      ${leaderboard ? `<p class="meta" id="results-lb" aria-live="polite">${this.esc(leaderboard)}</p>` : ''}
       ${achHtml}
       <div class="menu-stack">
         ${won && opts_next(content) ? `<button class="primary" data-act="next">${this.esc(nextLabel(content))}</button>` : ''}
