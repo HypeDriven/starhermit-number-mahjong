@@ -1072,8 +1072,8 @@ export class Renderer3D {
       this.postKey = key;
       this._buildPost(w, h);
     }
-    if (this.composer) this.composer.render(dt);
-    else this.renderer.render(this.scene, this.camera);
+    if (this.composer) (globalThis.GameOptions ? globalThis.GameOptions.draw(this.composer.renderer, () => this.composer.render(dt)) : this.composer.render(dt));
+    else (globalThis.GameOptions ? globalThis.GameOptions.draw(this.renderer, () => this.renderer.render(this.scene, this.camera)) : this.renderer.render(this.scene, this.camera));
   }
 
   attachStateGetter(getState) { this._getState = getState; }

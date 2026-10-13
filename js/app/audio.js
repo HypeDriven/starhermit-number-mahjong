@@ -73,7 +73,7 @@ export class AudioEngine {
       const g = this.ctx.createGain();
       g.gain.value = this.settings[bus] ?? 0.5;
       g.connect(master);
-      this.buses[bus] = g;
+      this.buses[bus] = (globalThis.GameOptions ? globalThis.GameOptions.tagBus(g, bus) : g);
     }
     this.started = true;
     this._startAmbience();
@@ -103,7 +103,7 @@ export class AudioEngine {
   _sample(name) {
     const buf = this.samples && this.samples[name];
     if (!buf || this.ctx.state !== 'running') return false;
-    const src = this.ctx.createBufferSource();
+    const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createBufferSource(), name) : this.ctx.createBufferSource());
     src.buffer = buf;
     src.connect(this.buses.effects);
     src.start();
@@ -130,7 +130,7 @@ export class AudioEngine {
   _blip(freq, dur, { type = 'sine', gain = 0.2, bus = 'effects', slide = 0, attack = 0.004 } = {}) {
     if (!this.started) return;
     const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
+    const osc = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createOscillator(), bus) : this.ctx.createOscillator());
     const g = this.ctx.createGain();
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t);
@@ -150,7 +150,7 @@ export class AudioEngine {
     const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const data = buf.getChannelData(0);
     for (let i = 0; i < len; i++) data[i] = (this.rng.next() * 2 - 1) * (1 - i / len);
-    const src = this.ctx.createBufferSource();
+    const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createBufferSource(), bus) : this.ctx.createBufferSource());
     src.buffer = buf;
     const bp = this.ctx.createBiquadFilter();
     bp.type = 'bandpass';
@@ -268,7 +268,7 @@ export class AudioEngine {
       last = (last + 0.02 * white) / 1.02;
       data[i] = last * 3;
     }
-    const src = this.ctx.createBufferSource();
+    const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createBufferSource(), null) : this.ctx.createBufferSource());
     src.buffer = buf;
     src.loop = true;
     const lp = this.ctx.createBiquadFilter();
@@ -276,7 +276,7 @@ export class AudioEngine {
     lp.frequency.value = 320;
     const g = this.ctx.createGain();
     g.gain.value = 0.35;
-    const lfo = this.ctx.createOscillator();
+    const lfo = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createOscillator(), null) : this.ctx.createOscillator());
     const lfoGain = this.ctx.createGain();
     lfo.frequency.value = 0.07;
     lfoGain.gain.value = 0.1;
