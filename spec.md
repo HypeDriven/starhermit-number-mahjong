@@ -33,7 +33,8 @@ and keep lifting until the felt is bare.
 | `js/app/main.js` | Bootstrap, phase machine, input wiring, command dispatch, timers, progression, achievements, gamepad |
 | `js/app/ui.js` | Screens, HUD, 2D board render, toasts, announcements, settings, help, leaderboards, achievements list |
 | `js/app/render3d.js` | Three.js scene: desk, felt, props, tile meshes with canvas-drawn number textures, tweens, particles, dust motes, picking; applies graphics settings live (shadows, post chain, reflections, detail, pixel ratio, adaptive resolution) |
-| `js/app/gfx.js` | Pure graphics quality model: presets, per-category tiers, GPU detection (`detectPreset`), `resolve`, `presetTier`, `choosePreset`, `describe` |
+| `js/app/gpu-level.js` | Shared StarHermit hardware-level module (`window.StarHermitGpu`, loaded before `main.js`), copied from the platform tools, never edited here |
+| `js/app/gfx.js` | Pure graphics quality model: presets, per-category tiers, hardware-level detection (`detectLevel`, `presetForLevel`, `detectPreset`), per-preset `BUDGETS`/`budgetFor`/`sparkCap`, `resolve`, `presetTier`, `choosePreset`, `describe` |
 | `js/app/gfx-strings.js` | Graphics-panel and StarHermit account strings for en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT, looked up in the game language |
 | `js/i18n/strings.js`, `js/i18n/i18n.js` | Translation tables (English keys, nine locales) and the runtime (`window.NMI18N`, live switching through `sh-language.js`, static-markup translation, `nm-language` event); classic scripts loaded before `js/app/main.js` |
 | `js/lang.js` | `T` / `N` / `lang` / `onLanguage` for the ES modules over `NMI18N` (English keys unchanged in Node, so rules and server code stay deterministic) |
@@ -317,21 +318,56 @@ ivory), a colour grade (S-curve, slight saturation, warm highlights / cool shado
 FXAA, SMAA or MSAA (on the composer's render target, so it switches live). Ambient motion drifts dust
 motes through the lamp light and flickers the flame; it stops under reduced motion (game setting or
 `prefers-reduced-motion`). Settings → **Graphics** offers a quality preset (Auto, chosen from the
-`WEBGL_debug_renderer_info` GPU string — software renderers get Low, discrete GPUs and Apple M get
-High, everything else Balanced, and touch devices cap at Balanced; Low; Balanced; High; Ultra), a
+StarHermit hardware level below; Low; Balanced; High; Ultra), a
 render scale (50–200%), one override per category with "From preset (…)" as the default — shadows
 (off/low/medium/high = none/1024²/2048²/4096²), ambient occlusion (off/on/high), bloom, colour grade,
 anti-aliasing (off/FXAA/SMAA/MSAA), reflections, scene detail (plain/detailed), particles
-(off/low/high = 0/60/200 sparks) and ambient motion (static/animated) — adaptive resolution (averages
+(off/low/high = none / 30 % / all of the preset's spark budget) and ambient motion (static/animated) — adaptive resolution (averages
 90 frames; steps the scale down 0.1 to a floor of 0.6 when frames exceed 26 ms, back up 0.05 below
 14 ms) and a frame-rate readout (bottom-left of the board, not interactive), plus a summary line
-"GPU · cost · W×H px". Choosing a preset clears overrides. Changes apply immediately, persist in
+"GPU · Level N · cost · W×H px" ("Level" localized). Choosing a preset clears overrides. Changes apply immediately, persist in
 `number-mahjong.settings` under `gfx` (and the cloud-save mirror), and are reflected as
 `data-gfx-preset` on `<body>` and the canvas. Pixel ratio is `min(dpr, cap) × preset scale × render
 scale × adaptive scale`, with caps Low 1, Balanced 1.5, High/Ultra 2 (Ultra scale 1.25). Low renders
 straight to the canvas with no composer, shadows, particles or props — no costlier than the original
 Low tier. If the post chain cannot be built the board renders without it and the panel says so. The
-panel's strings follow the game language (§10).
+panel's strings follow the game language (§10). Every tile draws as two groups — the numbered top and
+one shared group for the other five faces — so a tile costs two draw calls on every preset.
+
+**Hardware-level detection.** `js/app/gpu-level.js` (shared StarHermit copy, `window.StarHermitGpu`)
+rates the WebGL unmasked renderer plus device facts (`detectSystem()`: phone/tablet, cores, memory,
+screen) on the StarHermit hardware level 0–20 (0 = Galaxy S20 / Intel UHD or weaker, every software
+renderer and no WebGL; 20 = RTX 5090; each level ≈ 1.23×; laptop parts two levels below desktop;
+phones, tablets and ≤ 4 GB machines capped at 9). `gfx.js` maps it with `presetForLevel(level, { low: 0,
+balanced: 4, high: 10, ultra: 17 })`, so Auto picks Ultra on strong GPUs; adaptive resolution still
+steps down when slow. Headless SwiftShader is level 0 → Low. Phones and tablets pace Auto FPS at half
+the display refresh rate ("Auto (half refresh rate)") and start at 16 simultaneous sounds (shared
+`game-options.js`).
+
+**Per-preset budgets** (`BUDGETS` / `budgetFor` in `js/app/gfx.js`). Each preset holds 60 FPS on the
+weakest GPU Auto gives it — Low at level 0, Balanced 4, High 10, Ultra 17. Tiles, layout, tap targets
+and rules are identical on every preset; only visuals change. Spark and mote counts are tuned at the
+floor level and scale up within the preset on faster GPUs (`StarHermitGpu.scaleBudget`, ≤ 2×, at most
+600 / 300).
+
+| Budget | Low | Balanced | High | Ultra |
+|---|---|---|---|---|
+| Tile shading | Lambert | Standard | clear-coated Physical (Detail on) | as High |
+| Detailed tile-face texture (height 1.25×; plain faces 128 px) | 128 px | 256 px | 256 px | 512 px |
+| Engraved-numeral bump map | no | no | yes | yes |
+| Desk-wood texture (felt ½; Detail on) | 256 px | 256 px | 512 px | 1024 px |
+| Spark pool at Particles high | 100 | 140 | 200 | 300 |
+| Dust motes (Ambient animated) | 40 | 60 | 90 | 150 |
+| Bloom / GTAO resolution | ½ | ½ | ½ | full |
+
+**Benchmark** (`node tools/gfx-bench.mjs number-mahjong`; hook `tests/gfx-bench.mjs` picks the preset in
+Settings → Graphics, starts the Expert practice board and keeps clearing pairs by tapping the tiles on
+the 3D board, reshuffling when stuck and replaying from the results). Measured 2026-10-17 (GPU ms above
+the draws-skipped floor, projected to the preset's floor level; CPU p90 on the RTX 5090 run):
+
+- Desktop 1920×1080: PASS low (typical 0.00 / slow 1.41 ms GPU, CPU 0.60 ms); PASS balanced (4.69 /
+  6.97, CPU 1.20); PASS high (3.57 / 4.43, CPU 2.00); PASS ultra (4.19 / 4.64, CPU 1.70).
+- Mobile 390×844 @3×: PASS low (0.81 / 0.00, CPU 0.70); PASS balanced (0.00 / 0.00, CPU 1.00).
 
 **Visual assets the design calls for**
 
@@ -556,15 +592,15 @@ persistent values for the session. Keys: `number-mahjong.settings`, `.progress`,
 results; `beforeunload` writes a final one.
 
 **Performance budgets.** Graphics presets (see §8 **Graphics**) set pixel ratio, shadow map size,
-post-processing, particle cap and scene detail only — never rules or picking. Settings saved with the
-older single `graphicsTier` migrate to the matching preset (`medium` → Balanced). The particle pool is fixed at 200 and reused. The render loop stops while the tab is hidden. The
+post-processing, the per-preset budget (shading model, texture sizes, spark pool, motes) and scene detail only — never rules or picking. Settings saved with the
+older single `graphicsTier` migrate to the matching preset (`medium` → Balanced). The particle pool is allocated once at its largest budget and reused. The render loop stops while the tab is hidden. The
 target is 60 fps on desktop and a stable 30+ fps on mid-range phones at the Low preset; input
 acknowledgement is immediate because rules resolution is synchronous and animation is decorative.
 
 **e2e driving.** `tests/e2e.mjs` boots its own static server on an ephemeral port (the repo's
 `server.js` is the platform script), then drives the real visible UI in headless Chrome: it clicks
 menu buttons, opens and closes settings, drives Settings → Graphics (Auto resolves to Low under
-SwiftShader; Low then High, a shadows override, the frame-rate toggle, persistence across reload,
+SwiftShader; Low then High with "Level 0" in the summary, a shadows override, the frame-rate toggle, persistence across reload,
 Ultra clearing overrides, no horizontal overflow), enters the journey map and stage setup, waits out the
 countdown, pauses and resumes with the HUD button, switches the running round from Ultra back to Auto
 through pause → Settings, presses Hint, and clears the board by clicking the
@@ -579,8 +615,10 @@ synchronisation — phase, legal pairs, tile screen positions.
 the real SDK with an ETag-versioned fake server: token, profile, cloud save, settings KV, controls, a
 412 conflict merged and re-saved, zero requests standalone), `tests/i18n.test.mjs` (every markup/code
 key and engine rejection reason in all nine locales with placeholders intact, content texts, live
-switching) and `tests/gfx.test.mjs` (7 `node --test`
-cases: GPU detection, resolve with presets/overrides/scale clamp, preset-clears-overrides, preset
+switching) and `tests/gfx.test.mjs` (9 `node --test`
+cases: hardware level → preset (SwiftShader/llvmpipe/no WebGL, AMD Radeon Graphics and Intel UHD → Low,
+Iris Xe → Balanced, GTX 1070 → High, RTX 4080/5090 → Ultra, phones such as Adreno 740 capped at
+Balanced), the per-preset budget table, resolve with presets/overrides/scale clamp, preset-clears-overrides, preset
 completeness, the summary, and graphics strings in every locale). `run-tests.mjs` covers: RNG determinism and forking; construction,
 exposure and side-lock; every legal action and every rejection reason; selection toggling; scoring
 components; undo/hint/reshuffle semantics; the no-moves terminal and its reshuffle escape; move and

@@ -203,6 +203,7 @@ async function runPass(browser, vpName, contextOpts) {
       await page.waitForFunction(() => document.querySelector('#gfx-summary')?.textContent.includes('no shadows'));
       await page.selectOption('#gfx-preset', 'high');
       await page.waitForFunction(() => document.body.dataset.gfxPreset === 'high' && document.querySelector('#gfx-summary').textContent.includes('2048² shadows'));
+      if (!/ · Level 0 · /.test(await summary())) throw new Error(`summary lacks the hardware level: ${await summary()}`);
       if ((await page.locator('#gfx-cat-shadows option').first().innerText()) !== 'From preset (Medium)') throw new Error('shadows select should default to "From preset (Medium)"');
       await page.selectOption('#gfx-cat-shadows', 'off');
       await page.waitForFunction(() => document.querySelector('#gfx-summary').textContent.includes('no shadows'));

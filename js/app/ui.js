@@ -510,7 +510,8 @@ export class UI {
 
   gfxSummary(r, info) {
     const T = gfxStrings();
-    return [info?.gpu || T.unknownGpu, describe(r, info?.pixels, T.sum)].join(' · ');
+    return [info?.gpu || T.unknownGpu, info?.level != null ? T.level.replace('{n}', info.level) : null,
+      describe(r, info?.pixels, T.sum)].filter(Boolean).join(' · ');
   }
 
   // Re-render the Graphics section in place, keeping keyboard focus on the same control.

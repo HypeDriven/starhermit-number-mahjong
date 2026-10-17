@@ -17,11 +17,11 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { makeStream } from '../rules/rng.js';
 import { isExposed } from '../rules/engine.js';
-import { detectPreset, resolve, SHADOW_MAP, PARTICLES } from './gfx.js';
+import { detectLevel, presetForLevel, resolve, sparkCap, SHADOW_MAP, SPARK_MAX, MOTE_MAX } from './gfx.js';
 
 const TILE_W = 1.0, TILE_H = 0.34, TILE_D = 1.3, GAP = 0.16;
-const MAX_PARTICLES = 200;
-const MOTES = 90;
+const MAX_PARTICLES = SPARK_MAX; // pool built at the largest budget; the preset uses particleCap of it
+const MOTES = MOTE_MAX; // built at the largest budget; the preset draws moteCount of them
 
 // Colour grade: gentle S-curve contrast, a touch of saturation, warm
 // highlights / cool shadows, and a vignette. Runs in linear HDR before output.
@@ -75,6 +75,15 @@ class Tweens {
 }
 function easeOutCubic(k) { return 1 - Math.pow(1 - k, 3); }
 
+// Run a post pass at a fraction of the frame: EffectComposer.addPass/setSize hand every pass the full
+// frame size, so the pass's own setSize applies the budget's scale (half-res bloom/GTAO below Ultra).
+function atScale(pass, k) {
+  if (!(k < 1)) return pass;
+  const setSize = pass.setSize.bind(pass);
+  pass.setSize = (w, h) => setSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+  return pass;
+}
+
 function isMobileDevice() {
   try {
     return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ||
@@ -105,7 +114,7 @@ export class Renderer3D {
     try { this._prefersReduced = matchMedia('(prefers-reduced-motion: reduce)'); } catch { this._prefersReduced = null; }
     this._initGL();
     this._detectGpu();
-    this.q = resolve(this.saved, this.detected);
+    this.q = resolve(this.saved, this.detected, this.gpuLevel);
     this._buildEnvironment();
     this._initParticles();
     this._applyGfx(true);
@@ -145,7 +154,14 @@ export class Renderer3D {
       gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
     } catch { /* keep unknown */ }
     this.gpu = String(gpu || '');
-    this.detected = detectPreset(this.gpu, { mobile: isMobileDevice() });
+    // StarHermit hardware level (gpu-level.js): renderer string + device facts (phone/tablet, cores, memory).
+    let sys = { mobile: isMobileDevice(), webgl2: this.renderer.capabilities.isWebGL2 };
+    try {
+      const G = globalThis.StarHermitGpu;
+      if (G) { const d = G.detectSystem(); sys = { ...sys, mobile: sys.mobile || d.mobile, touch: d.touch, screen: d.screen, cores: d.cores, memoryGb: d.memoryGb, astc: d.astc }; }
+    } catch { /* defaults */ }
+    this.gpuLevel = detectLevel(this.gpu, sys);
+    this.detected = presetForLevel(this.gpuLevel);
   }
 
   setTheme(theme) {
@@ -178,13 +194,14 @@ export class Renderer3D {
   setGraphics(saved) {
     this.saved = saved || {};
     const prev = this.q;
-    this.q = resolve(this.saved, this.detected);
+    this.q = resolve(this.saved, this.detected, this.gpuLevel);
     this._applyGfx(false, prev);
   }
 
   graphicsInfo() {
     return {
       gpu: this.gpu,
+      level: this.gpuLevel,
       detected: this.detected,
       resolved: this.q,
       pixels: this._expectedPixels(),
@@ -213,7 +230,13 @@ export class Renderer3D {
     }
     this.scene.environment = q.reflections === 'on' ? this._envMap() : null;
     this.hemi.intensity = q.reflections === 'on' ? 0.45 : 0.6;
-    const detailChanged = initial || prev.detail !== q.detail;
+    const pb = prev.budget || {}, b = q.budget;
+    const assetsChanged = !initial && (pb.material !== b.material || pb.tile !== b.tile || pb.bump !== b.bump || pb.texture !== b.texture);
+    if (assetsChanged && pb.texture !== b.texture) {
+      this._wood?.dispose(); this._felt?.dispose();
+      this._wood = this._felt = null;
+    }
+    const detailChanged = initial || prev.detail !== q.detail || assetsChanged;
     if (detailChanged) {
       this.propsGroup.visible = q.detail === 'detailed';
       this.deskMat.map = q.detail === 'detailed' ? this._woodTex() : null;
@@ -221,8 +244,11 @@ export class Renderer3D {
       this.deskMat.roughness = q.detail === 'detailed' ? 0.62 : 0.82;
       this._retintTiles();
     }
-    this.particleCap = PARTICLES[q.particles];
+    this.particleCap = sparkCap(q);
+    for (let i = this.particleCap; i < MAX_PARTICLES; i++) { this.particleLife[i] = 0; this.particleData[i * 3 + 1] = -10; }
     this.particles.visible = this.particleCap > 0;
+    this.moteCount = Math.min(MOTES, b.motes);
+    this.motes.geometry.setDrawRange(0, this.moteCount);
     this.motes.visible = q.ambient === 'animated';
     if (shadowChanged || detailChanged || initial || prev.reflections !== q.reflections) {
       this.scene.traverse(o => {
@@ -269,11 +295,11 @@ export class Renderer3D {
         ao.blendIntensity = 0.75;
         ao.updateGtaoMaterial({ radius: 0.45, distanceExponent: 1.4, thickness: 1.0, scale: 1.0, samples: q.ao === 'high' ? 16 : 8 });
         ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: q.ao === 'high' ? 6 : 4, rings: 2, samples: q.ao === 'high' ? 16 : 8 });
-        composer.addPass(ao);
+        composer.addPass(atScale(ao, q.budget.aoRes));
       }
       if (q.bloom === 'on') {
         // high threshold: only emissive highlights (selection, hints, sparks, the lamp flame) bloom
-        composer.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.4, 1.3));
+        composer.addPass(atScale(new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.4, 1.3), q.budget.bloomRes));
       }
       if (q.grade === 'on') composer.addPass(new ShaderPass(GradeShader));
       composer.addPass(new OutputPass());
@@ -358,8 +384,8 @@ export class Renderer3D {
     this.scene.add(this.propsGroup);
 
     // tile geometry caches: plain box, or rounded with remapped UVs
-    this.tileGeoPlain = new THREE.BoxGeometry(TILE_W, TILE_H, TILE_D);
-    this.tileGeoRound = roundedTileGeometry();
+    this.tileGeoPlain = twoGroups(new THREE.BoxGeometry(TILE_W, TILE_H, TILE_D));
+    this.tileGeoRound = twoGroups(roundedTileGeometry());
     this.valueTextures = new Map();
   }
 
@@ -479,9 +505,11 @@ export class Renderer3D {
   // Procedural textures are near-white greyscale so theme colours still tint them.
   _woodTex() {
     if (this._wood) return this._wood;
+    const n = this.q.budget.texture; // authored at 512 px, drawn into the preset's texture budget
     const c = document.createElement('canvas');
-    c.width = 512; c.height = 512;
+    c.width = n; c.height = n;
     const g = c.getContext('2d');
+    g.scale(n / 512, n / 512);
     g.fillStyle = '#d8d8d8';
     g.fillRect(0, 0, 512, 512);
     const rng = makeStream('desk-wood');
@@ -507,9 +535,11 @@ export class Renderer3D {
 
   _feltTex() {
     if (this._felt) return this._felt;
+    const n = this.q.budget.texture / 2; // authored at 256 px
     const c = document.createElement('canvas');
-    c.width = 256; c.height = 256;
+    c.width = n; c.height = n;
     const g = c.getContext('2d');
+    g.scale(n / 256, n / 256);
     g.fillStyle = '#e6e6e6';
     g.fillRect(0, 0, 256, 256);
     const rng = makeStream('felt');
@@ -547,7 +577,7 @@ export class Renderer3D {
   _valueTexture(value) {
     if (this.valueTextures.has(value)) return this.valueTextures.get(value);
     const detailed = this.q.detail === 'detailed';
-    const W = detailed ? 256 : 128, H = detailed ? 320 : 160, k = W / 128;
+    const W = detailed ? this.q.budget.tile : 128, H = W * 1.25, k = W / 128;
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const g = c.getContext('2d');
@@ -597,7 +627,7 @@ export class Renderer3D {
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
     let bump = null;
-    if (detailed) {
+    if (detailed && this.q.budget.bump) {
       const b = document.createElement('canvas');
       b.width = W; b.height = H;
       const bg = b.getContext('2d');
@@ -630,8 +660,14 @@ export class Renderer3D {
 
   _tileGeo() { return this.q.detail === 'detailed' ? this.tileGeoRound : this.tileGeoPlain; }
 
+  // Tile shading per the preset's budget: Lambert on Low, Standard on Balanced, clear-coated Physical
+  // ivory on High/Ultra (Detail on). Emission keeps the selection / hint tint on every model.
   _topMat(value) {
-    const t = this._valueTexture(value);
+    const t = this._valueTexture(value), tier = this.q.budget.material;
+    if (tier === 'lambert') return new THREE.MeshLambertMaterial({ map: t.map, emissiveMap: t.map });
+    if (this.q.detail === 'detailed' && tier === 'standard') {
+      return new THREE.MeshStandardMaterial({ map: t.map, emissiveMap: t.map, roughness: 0.45, metalness: 0, envMapIntensity: 0.14 });
+    }
     if (this.q.detail === 'detailed') {
       return new THREE.MeshPhysicalMaterial({
         map: t.map, emissiveMap: t.map, bumpMap: t.bump, bumpScale: 0.6, roughness: 0.42, metalness: 0,
@@ -643,6 +679,9 @@ export class Renderer3D {
   }
 
   _edgeMat() {
+    const tier = this.q.budget.material, detailed = this.q.detail === 'detailed';
+    if (tier === 'lambert') return new THREE.MeshLambertMaterial({ color: 0xd8cbb2, map: detailed ? this._sideTex() : null });
+    if (detailed && tier === 'standard') return new THREE.MeshStandardMaterial({ color: 0xd8cbb2, map: this._sideTex(), roughness: 0.55, envMapIntensity: 0.14 });
     if (this.q.detail === 'detailed') {
       return new THREE.MeshPhysicalMaterial({ color: 0xd8cbb2, map: this._sideTex(), roughness: 0.5, clearcoat: 0.4, clearcoatRoughness: 0.35, envMapIntensity: 0.14 });
     }
@@ -668,7 +707,7 @@ export class Renderer3D {
     this.particleMat.color.multiplyScalar(2.2);
     this.particles = new THREE.Points(geo, this.particleMat);
     this.particles.frustumCulled = false;
-    this.particleCap = PARTICLES[this.q.particles];
+    this.particleCap = sparkCap(this.q);
     this.scene.add(this.particles);
 
     // dust motes drifting through the lamp light (ambient motion)
@@ -729,7 +768,7 @@ export class Renderer3D {
     const animate = this.q.ambient === 'animated' && !this._motionReduced();
     const s = t / 1000;
     if (this.motes.visible && animate) {
-      for (let i = 0; i < MOTES; i++) {
+      for (let i = 0; i < this.moteCount; i++) {
         const j = i * 3, p = i * 1.7;
         this.motePos[j] = this.moteBase[j] + Math.sin(s * 0.13 + p) * 0.6;
         this.motePos[j + 1] = this.moteBase[j + 1] + Math.sin(s * 0.09 + p * 1.3) * 0.35;
@@ -1099,6 +1138,30 @@ export class Renderer3D {
 // Rounded tile with BoxGeometry-compatible UVs: the top face maps x/z like a
 // plain box (numbers stay upright) and the sides map v to height, so the
 // two-ply side texture lines up on every face.
+// Tiles draw as two groups — the numbered top (material 2) and every other face (material 0) — instead
+// of six, so each tile is two draw calls on every preset. The edge materials share one colour per tile.
+function twoGroups(geo) {
+  if (!geo.index) { // RoundedBoxGeometry is non-indexed: index it 1:1 so the faces can be regrouped
+    const n = geo.attributes.position.count, id = n > 65535 ? new Uint32Array(n) : new Uint16Array(n);
+    for (let i = 0; i < n; i++) id[i] = i;
+    geo.setIndex(new THREE.BufferAttribute(id, 1));
+  }
+  const idx = geo.index.array, groups = geo.groups;
+  const top = groups[2], out = new (idx.constructor)(idx.length);
+  out.set(idx.subarray(top.start, top.start + top.count), 0);
+  let o = top.count;
+  for (let g = 0; g < groups.length; g++) {
+    if (g === 2) continue;
+    out.set(idx.subarray(groups[g].start, groups[g].start + groups[g].count), o);
+    o += groups[g].count;
+  }
+  geo.setIndex(new THREE.BufferAttribute(out, 1));
+  geo.clearGroups();
+  geo.addGroup(0, top.count, 2);
+  geo.addGroup(top.count, o - top.count, 0);
+  return geo;
+}
+
 function roundedTileGeometry() {
   const geo = new RoundedBoxGeometry(TILE_W, TILE_H, TILE_D, 3, 0.06);
   const pos = geo.attributes.position, uv = geo.attributes.uv;

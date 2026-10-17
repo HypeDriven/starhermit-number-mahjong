@@ -23,7 +23,7 @@ const en = {
   showFps: 'Show frame rate',
   postUnavailable: 'Post-processing is unavailable on this device, so the board renders without it.',
   off3d: 'The 3D view is off; these settings apply when it is on.',
-  unknownGpu: 'Unknown GPU',
+  unknownGpu: 'Unknown GPU', level: 'Level {n}',
   sum: {
     noShadows: 'no shadows', shadows: '{n}² shadows', ao: 'ambient occlusion', aoFull: 'full ambient occlusion',
     bloom: 'bloom', reflections: 'reflections', noAA: 'no anti-aliasing',
@@ -54,7 +54,7 @@ const L = {
     showFps: 'Mostrar cuadros por segundo',
     postUnavailable: 'El posprocesamiento no está disponible en este dispositivo; el tablero se muestra sin él.',
     off3d: 'La vista 3D está desactivada; estos ajustes se aplican cuando esté activada.',
-    unknownGpu: 'GPU desconocida',
+    unknownGpu: 'GPU desconocida', level: 'Nivel {n}',
     sum: {
       noShadows: 'sin sombras', shadows: 'sombras {n}²', ao: 'oclusión ambiental', aoFull: 'oclusión ambiental completa',
       bloom: 'resplandor', reflections: 'reflejos', noAA: 'sin antialiasing',
@@ -81,7 +81,7 @@ const L = {
     showFps: 'Bildrate anzeigen',
     postUnavailable: 'Nachbearbeitung ist auf diesem Gerät nicht verfügbar; das Brett wird ohne sie dargestellt.',
     off3d: 'Die 3D-Ansicht ist aus; diese Einstellungen gelten, sobald sie an ist.',
-    unknownGpu: 'Unbekannte GPU',
+    unknownGpu: 'Unbekannte GPU', level: 'Stufe {n}',
     sum: {
       noShadows: 'keine Schatten', shadows: '{n}²-Schatten', ao: 'Umgebungsverdeckung', aoFull: 'volle Umgebungsverdeckung',
       bloom: 'Leuchteffekt', reflections: 'Spiegelungen', noAA: 'keine Kantenglättung',
@@ -108,7 +108,7 @@ const L = {
     showFps: 'Afficher la fréquence d’images',
     postUnavailable: 'Le post-traitement n’est pas disponible sur cet appareil ; le plateau s’affiche sans.',
     off3d: 'La vue 3D est désactivée ; ces réglages s’appliquent quand elle est activée.',
-    unknownGpu: 'GPU inconnu',
+    unknownGpu: 'GPU inconnu', level: 'Niveau {n}',
     sum: {
       noShadows: 'sans ombres', shadows: 'ombres {n}²', ao: 'occlusion ambiante', aoFull: 'occlusion ambiante complète',
       bloom: 'halo', reflections: 'reflets', noAA: 'sans anticrénelage',
@@ -135,7 +135,7 @@ const L = {
     showFps: 'Mostrar taxa de quadros',
     postUnavailable: 'O pós-processamento não está disponível neste dispositivo; o tabuleiro é exibido sem ele.',
     off3d: 'A visão 3D está desligada; estas opções valem quando ela estiver ligada.',
-    unknownGpu: 'GPU desconhecida',
+    unknownGpu: 'GPU desconhecida', level: 'Nível {n}',
     sum: {
       noShadows: 'sem sombras', shadows: 'sombras {n}²', ao: 'oclusão ambiente', aoFull: 'oclusão ambiente completa',
       bloom: 'brilho', reflections: 'reflexos', noAA: 'sem antisserrilhado',
@@ -162,7 +162,7 @@ const L = {
     showFps: 'Mostra frequenza fotogrammi',
     postUnavailable: 'La post-elaborazione non è disponibile su questo dispositivo; il tavoliere viene mostrato senza.',
     off3d: 'La vista 3D è disattivata; queste impostazioni valgono quando è attiva.',
-    unknownGpu: 'GPU sconosciuta',
+    unknownGpu: 'GPU sconosciuta', level: 'Livello {n}',
     sum: {
       noShadows: 'senza ombre', shadows: 'ombre {n}²', ao: 'occlusione ambientale', aoFull: 'occlusione ambientale completa',
       bloom: 'bagliore', reflections: 'riflessi', noAA: 'senza antialiasing',
