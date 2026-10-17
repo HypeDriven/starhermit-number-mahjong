@@ -5,6 +5,8 @@
 // per-player settings KV, controls and read-only leaderboards. Without a token
 // this module makes no request at all (local clock, local boards).
 
+import { T, N } from '../lang.js';
+
 function sdk() {
   const w = typeof window !== 'undefined' ? window : globalThis;
   return (w && w.StarHermit) || null;
@@ -21,6 +23,7 @@ export const platform = {
   _saveTimer: null,
   _pendingDoc: null,
   persistMeta: null,    // hook: (savedAt) => void, set by main.js
+  onConflict: null,     // hook: (remoteDoc) => mergedDoc, set by main.js
   onAuth: null,         // hook: ({ signedIn }) => void, set by main.js
 };
 
@@ -40,6 +43,8 @@ export function readLaunchToken() {
       if (!a.signedIn) { platform.nickname = null; setSync('offline'); }
       if (platform.onAuth) platform.onAuth(a);
     });
+    // A conditional write lost to another device's save: reload, merge, save the merge.
+    s.on('saveconflict', () => { resolveConflict(); });
   }
   return !!s.signedIn;
 }
@@ -83,25 +88,45 @@ export async function loadProfile() {
   const s = sdk();
   if (!s || !s.signedIn) return null;
   const p = await s.profile();
-  platform.nickname = p ? p.displayName : 'Player ' + String(s.userId).slice(0, 6);
+  platform.nickname = p ? p.displayName : T('Player {id}', { id: String(s.userId).slice(0, 6) });
   return platform.nickname;
 }
 
 async function nicknameFor(userId) {
   const s = sdk();
-  if (!userId) return 'Player';
+  if (!userId) return T('Player');
   const p = s ? await s.profile(String(userId)) : null;
-  return p ? p.displayName : 'Player ' + String(userId).slice(0, 6);
+  return p ? p.displayName : T('Player {id}', { id: String(userId).slice(0, 6) });
 }
 
 // ---------------------------------------------------------------------------
 // cloud save (game:<slug>; localStorage stays the offline cache)
 // ---------------------------------------------------------------------------
 
+const SYNC_TEXT = { offline: '', saving: N('saving…'), synced: N('synced ✓') };
 function setSync(state) {
   platform.sync = state;
+  refreshSyncText();
+}
+/** Re-render the account chip's sync text (also on a language change). */
+export function refreshSyncText() {
   const el = typeof document !== 'undefined' && document.getElementById('sync-status');
-  if (el) el.textContent = { offline: '', saving: 'saving…', synced: 'synced ✓' }[state] || '';
+  if (el) el.textContent = SYNC_TEXT[platform.sync] ? T(SYNC_TEXT[platform.sync]) : '';
+}
+
+/** Another device saved since our last load: reload the slot, let main.js
+ *  merge it (onConflict returns the merged doc) and write that, conditional
+ *  on the version just read. */
+export async function resolveConflict() {
+  const s = sdk();
+  if (!platform.token || !s) return false;
+  setSync('saving');
+  const remote = await s.loadJSON();
+  platform._pendingDoc = null; // the merge supersedes any doc queued before the conflict
+  const doc = platform.onConflict ? platform.onConflict(remote && typeof remote === 'object' ? remote : null) : null;
+  if (!doc || s.saveConflicted()) return false;
+  platform._pendingDoc = doc;
+  return flushCloudSave();
 }
 
 export function scheduleCloudSave(buildDoc) {

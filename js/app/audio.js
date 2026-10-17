@@ -3,6 +3,7 @@
 // Randomized pitch variants come from a seeded stream for replay consistency.
 
 import { makeStream } from '../rules/rng.js';
+import { T, N } from '../lang.js';
 
 // Recorded one-shot samples (sfx/, see sfx/manifest.md) keyed by logical event.
 // When a sample is unavailable (not yet fetched, decode failed) the procedural
@@ -309,36 +310,37 @@ export class AudioEngine {
   }
 }
 
+// Caption keys are English; main.js shows them through T().
 function captionFor(event, opts = {}) {
   switch (event) {
-    case 'select': return 'tile selected';
-    case 'deselect': return 'selection cleared';
-    case 'invalid': return 'not a valid pair';
-    case 'drag-start': return 'drag started';
-    case 'drop': return 'dropped';
-    case 'tab-switch': return 'tab switched';
-    case 'pair': return 'pair removed';
-    case 'chain': return `chain ×${opts.chain || 1}`;
-    case 'hint': return 'hint shown';
-    case 'reshuffle': return 'tiles reshuffled';
-    case 'undo': return 'move undone';
-    case 'win': return 'round complete';
-    case 'board-clear': return 'board cleared';
-    case 'win-stinger': return 'stage complete';
-    case 'lose': return 'round over';
-    case 'star-rating': return 'star rating';
-    case 'new-record': return 'new record';
-    case 'resume': return 'resumed';
-    case 'timer-warning': return 'time running out';
-    case 'round-start': return 'round begins';
-    case 'expose': return 'deeper tile exposed';
-    case 'target-shift': return 'target changed';
-    case 'countdown': return 'countdown';
-    case 'toast': return 'notice';
-    case 'modal-open': return 'panel opened';
-    case 'modal-close': return 'panel closed';
-    case 'settings-saved': return 'settings saved';
-    case 'achievement': return 'achievement unlocked';
+    case 'select': return N('tile selected');
+    case 'deselect': return N('selection cleared');
+    case 'invalid': return N('not a valid pair');
+    case 'drag-start': return N('drag started');
+    case 'drop': return N('dropped');
+    case 'tab-switch': return N('tab switched');
+    case 'pair': return N('pair removed');
+    case 'chain': return T('chain ×{n}', { n: opts.chain || 1 });
+    case 'hint': return N('hint shown');
+    case 'reshuffle': return N('tiles reshuffled');
+    case 'undo': return N('move undone');
+    case 'win': return N('round complete');
+    case 'board-clear': return N('board cleared');
+    case 'win-stinger': return N('stage complete');
+    case 'lose': return N('round over');
+    case 'star-rating': return N('star rating');
+    case 'new-record': return N('new record');
+    case 'resume': return N('resumed');
+    case 'timer-warning': return N('time running out');
+    case 'round-start': return N('round begins');
+    case 'expose': return N('deeper tile exposed');
+    case 'target-shift': return N('target changed');
+    case 'countdown': return N('countdown');
+    case 'toast': return N('notice');
+    case 'modal-open': return N('panel opened');
+    case 'modal-close': return N('panel closed');
+    case 'settings-saved': return N('settings saved');
+    case 'achievement': return N('achievement unlocked');
     default: return '';
   }
 }

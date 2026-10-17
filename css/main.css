@@ -478,3 +478,14 @@ html.ui-scaled #app[data-screen]:not([data-screen="play"]) #screen-root { displa
 html.ui-scaled #screen-root > .screen { width: 100%; margin-block: auto; flex-shrink: 0; }
 /* on menus/results toasts sit at the top so they never cover the bottom action buttons */
 #app[data-screen]:not([data-screen="play"]) #toast-stack { bottom: auto; top: calc(14px + var(--sat)); }
+/* The signed-in account chip sits top-right, where the play HUD keeps its pause
+   button: hide it during play so it never covers (or intercepts taps on) the HUD. */
+#app[data-screen="play"] #account-chip { display: none; }
+/* Long translated labels and options (German "Wie Voreinstellung (…)") shrink
+   inside the settings column instead of widening it past a 390 px screen. */
+.settings-grid { grid-template-columns: minmax(0, 1fr); }
+.setting-row, .setting-row label { min-width: 0; }
+.setting-row label { hyphens: auto; overflow-wrap: break-word; }
+.setting-row select { min-width: 0; max-width: 52%; }
+#gfx-section .setting-row { gap: 10px; }
+#gfx-section .setting-row select { max-width: 52%; }

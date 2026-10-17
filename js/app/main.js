@@ -10,11 +10,13 @@ import { store } from './storage.js';
 import {
   platform, readLaunchToken, syncServerTime, startRefreshLoop,
   loadProfile, loadCloudSave, scheduleCloudSave, flushCloudSave,
-  fetchOnlineBoard, submitScore,
+  fetchOnlineBoard, submitScore, refreshSyncText,
   canSignIn, signIn, inviteLink, avatarUrl,
   getPlatformSettings, patchPlatformSettings, loadBindings,
 } from './platform.js';
 import { shStrings } from './gfx-strings.js';
+import { T, onLanguage } from '../lang.js';
+import { mergeProgress } from './storage.js';
 import { AudioEngine } from './audio.js';
 import { UI, ACHIEVEMENTS } from './ui.js';
 import { Renderer3D, webglAvailable } from './render3d.js';
@@ -105,7 +107,7 @@ class App {
   }
   keyText(action) { return (this.keys[action] || []).map(keyLabel).join('/'); }
   _reflectKeys() {
-    const t = { 'btn-hint': ['Hint', 'hint'], 'btn-reshuffle': ['Reshuffle', 'reshuffle'], 'btn-undo': ['Undo', 'undo'] };
+    const t = { 'btn-hint': [T('Hint'), 'hint'], 'btn-reshuffle': [T('Reshuffle'), 'reshuffle'], 'btn-undo': [T('Undo'), 'undo'] };
     for (const [id, [label, a]] of Object.entries(t)) { const b = document.getElementById(id); if (b) b.title = `${label} (${this.keyText(a)})`; }
   }
 
@@ -144,12 +146,16 @@ class App {
       }
     } else {
       this.ui.compat3DUnavailable();
-      $('#compat-message').querySelector('p').textContent =
-        'The 2D board is active. You can re-enable the 3D observatory in Settings → Graphics.';
+      this._compatText = () => T('The 2D board is active. You can re-enable the 3D observatory in Settings → Graphics.');
+      $('#compat-message').querySelector('p').textContent = this._compatText();
     }
 
     this._reflectGfx();
-    this.audio.onCaption = (t) => { if (this.settings.soundCaptions && t) this.caption(t); };
+    this.audio.onCaption = (t) => { if (this.settings.soundCaptions && t) this.caption(T(t)); };
+    // Settings → Language: js/i18n/i18n.js re-translates the static markup and
+    // fires nm-language; the open screen, HUD, banners and chips re-render in
+    // place (a round keeps going).
+    onLanguage(() => this._onLanguage());
     this._wireInput();
     this._wireGlobalKeys();
     this._wireVisibility();
@@ -170,9 +176,10 @@ class App {
   _initHosted() {
     document.getElementById('account-chip').hidden = false;
     const nameEl = document.getElementById('account-name');
-    nameEl.textContent = 'Player ' + String(platform.userId || '').slice(0, 8);
+    nameEl.textContent = T('Player {id}', { id: String(platform.userId || '').slice(0, 8) });
     startRefreshLoop(); // re-mint the 60-min token every 45 min
     platform.persistMeta = (savedAt) => store.saveCloudMeta({ savedAt });
+    platform.onConflict = (doc) => this._onSaveConflict(doc);
     loadProfile().then((nick) => {
       if (nick) nameEl.textContent = nick;
       if (this.phase === 'title' && this.root.dataset.screen === 'title') this.toTitle('profile');
@@ -190,8 +197,8 @@ class App {
       this._cloudLoading = false;
       const held = this._cloudHeld;
       this._cloudHeld = false;
-      const adopted = doc ? this._adoptCloudDoc(doc) : false;
-      if (held && !adopted) this.cloudSave(); // a held save is stale once remote is adopted
+      const savedMerge = doc ? this._adoptCloudDoc(doc) : false;
+      if (held && !savedMerge) this.cloudSave(); // a held save now carries the merged progress
     }).then(() => getPlatformSettings()).then((kv) => {
       // the account's preferences (settings KV) win over local values
       if (!kv) return;
@@ -216,23 +223,25 @@ class App {
   }
 
   _adoptCloudDoc(doc) {
-    // the cloud slot is the mirror of record; on conflict prefer remote and
-    // rewrite localStorage, which stays the offline cache — unless local
-    // changes are newer than the last accepted upload, in which case push
-    // them up instead of clobbering them
+    // Progress from the cloud slot is always merged with this device's
+    // (mergeProgress: neither side's stages, stars, bests or achievements are
+    // lost); the cloud settings are taken only when that save is newer than
+    // the last one this device accepted. localStorage stays the offline cache.
+    // Returns true when the merge must be written back.
     const meta = store.loadCloudMeta();
-    if (meta?.savedAt && doc.savedAt && doc.savedAt < meta.savedAt) {
-      this.cloudSave();
-      return false;
-    }
-    if (doc.savedAt) store.saveCloudMeta({ savedAt: doc.savedAt });
-    if (doc.settings && typeof doc.settings === 'object') this._applySettingsDoc(doc.settings);
+    const newer = !(meta?.savedAt && doc.savedAt && doc.savedAt < meta.savedAt);
+    if (newer && doc.savedAt) store.saveCloudMeta({ savedAt: doc.savedAt });
+    if (newer && doc.settings && typeof doc.settings === 'object') this._applySettingsDoc(doc.settings);
+    let extra = !newer;
     if (doc.progress && typeof doc.progress === 'object') {
-      this.progress = { ...this.progress, ...doc.progress };
+      const merged = mergeProgress(this.progress, doc.progress);
+      extra = extra || JSON.stringify(merged) !== JSON.stringify(mergeProgress(doc.progress, doc.progress));
+      this.progress = merged;
       store.saveProgress(this.progress);
     }
     if (this.phase === 'title' && this.root.dataset.screen === 'title') this.toTitle('cloud');
-    return true;
+    if (extra) this.cloudSave();
+    return extra;
   }
 
   _applySettingsDoc(settings) {
@@ -253,6 +262,27 @@ class App {
   cloudSave() {
     if (this._cloudLoading) { this._cloudHeld = true; return; }
     scheduleCloudSave(this.cloudDoc());
+  }
+
+  /** Another device saved first (the SDK refused our write): merge its doc. */
+  _onSaveConflict(doc) {
+    if (doc && typeof doc === 'object' && doc.progress && typeof doc.progress === 'object') {
+      this.progress = mergeProgress(this.progress, doc.progress);
+      store.saveProgress(this.progress);
+      if (this.phase === 'title' && this.root.dataset.screen === 'title') this.toTitle('cloud');
+    }
+    return this.cloudDoc();
+  }
+
+  _onLanguage() {
+    this.ui.relabel();
+    this._reflectKeys();
+    if (this._compatText && !$('#compat-message').hidden) $('#compat-message').querySelector('p').textContent = this._compatText();
+    if (platform.token && !platform.nickname) document.getElementById('account-name').textContent = T('Player {id}', { id: String(platform.userId || '').slice(0, 8) });
+    refreshSyncText();
+    this.ui.relabelLessonBanner();
+    if (this.state) this.ui.updateHUD(this.state, this.content, this._timerRemaining());
+    if (this.state) this.ui.renderBoard2D(this.state);
   }
 
   caption(text) {
@@ -285,16 +315,16 @@ class App {
       dailyDate: iso,
       streak: this.winStreak,
       resumeInfo,
-      profile: platform.token ? (platform.nickname || 'Player ' + String(platform.userId || '').slice(0, 6)) : null,
+      profile: platform.token ? (platform.nickname || T('Player {id}', { id: String(platform.userId || '').slice(0, 6) })) : null,
       account: { signIn: canSignIn(), invite: !!inviteLink() },
     });
   }
 
   resumeSavedRound(contentId) {
     const snap = store.loadSessionSnapshot(contentId);
-    if (!snap?.state) { this.ui.toast('No saved round found', true); return; }
+    if (!snap?.state) { this.ui.toast(T('No saved round found'), true); return; }
     let state;
-    try { state = E.deserialize(snap.state); } catch { this.ui.toast('Saved round was corrupt', true); return; }
+    try { state = E.deserialize(snap.state); } catch { this.ui.toast(T('Saved round was corrupt'), true); return; }
     // rebuild content deterministically from the stored content id
     let content = null;
     if (contentId.startsWith('daily-')) {
@@ -309,7 +339,7 @@ class App {
     } else if (contentId.startsWith('chal-')) {
       content = challengeContent(contentId);
     }
-    if (!content) { this.ui.toast('Cannot resume this round', true); return; }
+    if (!content) { this.ui.toast(T('Cannot resume this round'), true); return; }
 
     this.phase = 'preparing';
     const { content: prepared, board } = prepareContent(content);
@@ -335,7 +365,7 @@ class App {
     this.clock.set(state.elapsedMs);
     this._startTimerLoop();
     // “while you were away” summary
-    const away = `Welcome back. ${E.remainingTiles(state)} tiles remain, score ${E.score(state).total}, ${this.ui.fmtMs(state.elapsedMs)} elapsed.`;
+    const away = T('Welcome back. {n} tiles remain, score {score}, {time} elapsed.', { n: E.remainingTiles(state), score: E.score(state).total, time: this.ui.fmtMs(state.elapsedMs) });
     this.ui.toast(away);
     this.ui.announce(away + ' ' + this.ui.boardSummary(state));
   }
@@ -393,7 +423,7 @@ class App {
       let n = 3;
       const step = () => {
         if (this.phase !== 'countdown') return;
-        if (n === 0) { this.ui.countdown('Observe'); this.audio.play('round-start'); setTimeout(() => { this.ui.countdown(null); this._activate(); }, 450); return; }
+        if (n === 0) { this.ui.countdown(T('Observe')); this.audio.play('round-start'); setTimeout(() => { this.ui.countdown(null); this._activate(); }, 450); return; }
         this.ui.countdown(String(n));
         this.audio.play('countdown');
         n--;
@@ -418,7 +448,7 @@ class App {
 
   announceObjective() {
     const target = E.currentTarget(this.state);
-    this.ui.announce(`Round started. ${describeRuleShort(this.state.ruleset, target)}. ${this.ui.boardSummary(this.state)}`);
+    this.ui.announce(T('Round started. {rule}. {summary}', { rule: describeRuleShort(this.state.ruleset, target), summary: this.ui.boardSummary(this.state) }));
   }
 
   _announceBoard() {
@@ -439,7 +469,7 @@ class App {
     const { state: next, events } = E.applyCommand(before, cmd);
     if (next === before && events[0]?.type === 'rejected') {
       if (cmd.type === 'hint' || cmd.type === 'reshuffle' || cmd.type === 'undo') {
-        this.ui.toast(events[0].reason, true);
+        this.ui.toast(T(events[0].reason), true);
         this.audio.play('invalid');
       }
       return;
@@ -461,36 +491,37 @@ class App {
       switch (ev.type) {
         case 'select':
           this.audio.play('select');
-          this.ui.announce(`Tile ${st.tiles[ev.tile].value} selected. ${this._partnerHint(ev.tile)}`);
+          this.ui.announce(T('Tile {v} selected. {hint}', { v: st.tiles[ev.tile].value, hint: this._partnerHint(ev.tile) }));
           break;
         case 'deselect': this.audio.play('deselect'); break;
         case 'invalid':
           this.audio.play('invalid');
           this.ui.toast(this._invalidText(ev), true);
-          this.ui.announce(`Invalid: ${this._invalidText(ev)}`);
+          this.ui.announce(T('Invalid: {reason}', { reason: this._invalidText(ev) }));
           break;
         case 'pair': {
           this.audio.play(ev.chain > 1 ? 'chain' : 'pair', { chain: ev.chain });
           // a deeper tile sliding free under the removed pair
           if (before && E.exposedTiles(st).some(id => st.tiles[id] && !E.isExposed(before, id))) this.audio.play('expose');
           if (st.ruleset.dynamic && st.status === 'active') this.audio.play('target-shift');
-          this.ui.announce(`${ev.values[0]} and ${ev.values[1]} removed, +${ev.gained}. ${E.remainingTiles(st) / 2} pairs left.${st.ruleset.dynamic ? ` New target: ${E.currentTarget(st)}.` : ''}`);
+          this.ui.announce(T('{a} and {b} removed, +{gained}. {left} pairs left.', { a: ev.values[0], b: ev.values[1], gained: ev.gained, left: E.remainingTiles(st) / 2 })
+            + (st.ruleset.dynamic ? ' ' + T('New target: {n}.', { n: E.currentTarget(st) }) : ''));
           break;
         }
         case 'hint': {
           this.audio.play('hint');
           const a = st.tiles[ev.tileA], b = st.tiles[ev.tileB];
-          this.ui.announce(`Hint: try ${a.value} and ${b.value}.`);
-          this.ui.toast(`Hint: ${a.value} + ${b.value}`.replace('+', hintJoiner(st)));
+          this.ui.announce(T('Hint: try {a} and {b}.', { a: a.value, b: b.value }));
+          this.ui.toast(T('Hint: {pair}', { pair: `${a.value} + ${b.value}`.replace('+', hintJoiner(st)) }));
           break;
         }
         case 'reshuffle':
           this.audio.play('reshuffle');
-          this.ui.announce('Remaining tiles reshuffled. ' + this.ui.boardSummary(st));
+          this.ui.announce(T('Remaining tiles reshuffled.') + ' ' + this.ui.boardSummary(st));
           break;
         case 'undo':
           this.audio.play('undo');
-          this.ui.announce('Move undone. ' + this.ui.boardSummary(st));
+          this.ui.announce(T('Move undone.') + ' ' + this.ui.boardSummary(st));
           break;
         case 'terminal':
           this._onTerminal();
@@ -504,9 +535,9 @@ class App {
     const v = this.state.tiles[tileId].value;
     const r = this.state.ruleset;
     switch (r.rule) {
-      case 'sum': return `Partner must be ${E.currentTarget(this.state) - v}.`;
-      case 'match': return `Partner must also be ${v}.`;
-      case 'diff': return `Partner must be ${v - r.diff} or ${v + r.diff}.`;
+      case 'sum': return T('Partner must be {n}.', { n: E.currentTarget(this.state) - v });
+      case 'match': return T('Partner must also be {n}.', { n: v });
+      case 'diff': return T('Partner must be {a} or {b}.', { a: v - r.diff, b: v + r.diff });
       default: return '';
     }
   }
@@ -514,10 +545,10 @@ class App {
   _invalidText(ev) {
     if (ev.reason === E.REJECT.RULE_MISMATCH) {
       const a = this.state.tiles[ev.tileA]?.value, b = this.state.tiles[ev.tileB]?.value;
-      return `${a} and ${b} don’t satisfy the rule (${describeRuleShort(this.state.ruleset, E.currentTarget(this.state))})`;
+      return T('{a} and {b} don’t satisfy the rule ({rule})', { a, b, rule: describeRuleShort(this.state.ruleset, E.currentTarget(this.state)) });
     }
-    if (ev.reason === E.REJECT.NOT_EXPOSED) return 'That tile is covered or locked on both sides';
-    return ev.reason || 'Not allowed';
+    if (ev.reason === E.REJECT.NOT_EXPOSED) return T('That tile is covered or locked on both sides');
+    return ev.reason ? T(ev.reason) : T('Not allowed');
   }
 
   // tap/confirm semantics: first tile selects, second tile attempts a pair
@@ -649,21 +680,23 @@ class App {
     // signed in: every finished Daily round and every won Challenge posts its
     // total to the platform high-score board; the results screen shows the rank
     const postLb = !!platform.userId && (this.content.kind === 'daily' || (this.content.kind === 'challenge' && won));
+    let lbResult = null;
+    const lbText = () => { const t = shStrings(); const r = lbResult; return !r ? t.lbPosting : !r.posted ? t.lbNotPosted : r.rank ? t.lbRank.replace('{rank}', r.rank) : t.lbPosted; };
     this.ui.showResults({
       state: st, content: this.content, breakdown, stars,
       newAchievements, boardPlacement: placement, par: this.content.par,
-      leaderboard: postLb ? shStrings().lbPosting : null,
+      leaderboard: postLb ? lbText : null,
     });
     if (postLb) {
       const round = st;
       submitScore(breakdown.total).then((r) => {
         if (this.state !== round || this.phase !== 'results') return;
-        const t = shStrings();
+        lbResult = r;
         const line = document.getElementById('results-lb');
-        if (line) line.textContent = !r.posted ? t.lbNotPosted : r.rank ? t.lbRank.replace('{rank}', r.rank) : t.lbPosted;
+        if (line) line.textContent = lbText();
       });
     }
-    this.ui.announce(`${st.status === 'won' ? 'Round complete' : 'Round over'}. Total score ${breakdown.total}.`, true);
+    this.ui.announce(T('{headline}. Total score {total}.', { headline: st.status === 'won' ? T('Round complete') : T('Round over'), total: breakdown.total }), true);
     if (won) this.audio.play('win-stinger');
     if (stars != null && won) this.audio.play('star-rating');
     if (placement === 0) this.audio.play('new-record');
@@ -693,7 +726,7 @@ class App {
       if (!this.progress.achievements[key]) {
         this.progress.achievements[key] = nowUtcMs();
         const meta = ACHIEVEMENTS.find(a => a.key === key);
-        if (meta) { unlocked.push(meta); this.ui.toast(`Achievement: ${meta.name}`); }
+        if (meta) { unlocked.push(meta); this.ui.toast(T('Achievement: {name}', { name: T(meta.name) })); }
       }
     };
     if (won) {
@@ -771,7 +804,7 @@ class App {
     this.audio.resume();
     this.audio.play('resume');
     this.ui.setPaused(false);
-    this.ui.announce('Round resumed. ' + this.ui.boardSummary(this.state));
+    this.ui.announce(T('Round resumed.') + ' ' + this.ui.boardSummary(this.state));
   }
 
   leaveRound() {
@@ -948,7 +981,7 @@ class App {
     }
     if (el.dataset.challenge) {
       const c = challengeContent(el.dataset.challenge);
-      this.openModeSetup(c, { blurb: c.blurb });
+      this.openModeSetup(c, { blurb: () => T(c.blurb) });
       return;
     }
     if (el.dataset.lesson) {
@@ -973,12 +1006,12 @@ class App {
           const { iso, dayIndex } = todayDailyInfo();
           const content = dailyContent(iso, dayIndex);
           this.openModeSetup(content, {
-            extraButtons: `<p class="meta" style="text-align:center">Next daily in ${this.ui.fmtMs(msUntilNextDaily())}${DAILY_EXCLUDED.has(iso) ? ' · today is excluded from ranking' : ''}</p>`,
+            extraButtons: () => `<p class="meta" style="text-align:center">${this.ui.esc(T('Next daily in {time}', { time: this.ui.fmtMs(msUntilNextDaily()) }) + (DAILY_EXCLUDED.has(iso) ? ' · ' + T('today is excluded from ranking') : ''))}</p>`,
           });
         } catch (err) {
           // A bad clock/offset must never leave the menu silently unresponsive.
           platform.serverOffsetMs = 0;
-          this.ui.toast('Could not set up today\'s daily (clock problem). Using this device\'s clock — try again.');
+          this.ui.toast(T('Could not set up today’s daily (clock problem). Using this device’s clock — try again.'));
           console.warn('daily setup failed', err);
         }
         break;
@@ -1013,10 +1046,10 @@ class App {
         this.progress.lessons = {};
         store.saveProgress(this.progress);
         this.cloudSave();
-        this.ui.toast('Lessons reset');
+        this.ui.toast(T('Lessons reset'));
         break;
       case 'erase-all':
-        if (confirm('Erase ALL local progress, settings, and leaderboard entries? This cannot be undone.')) {
+        if (confirm(T('Erase ALL local progress, settings, and leaderboard entries? This cannot be undone.'))) {
           store.resetAll();
           this.settings = store.loadSettings();
           this._migrateGfx();
@@ -1028,7 +1061,7 @@ class App {
           this.cloudSave();
           flushCloudSave(); // mirror the erased state before any reload
           this._pushPlatformSettings();
-          this.ui.toast('All local data erased');
+          this.ui.toast(T('All local data erased'));
         }
         break;
     }
@@ -1122,7 +1155,7 @@ class App {
     // platform leaderboard is read-only and optional: local records always show
     const render = (online) => this.ui.showScores({
       boards, progress: this.progress, online,
-      profile: platform.token ? (platform.nickname || 'Player ' + String(platform.userId || '').slice(0, 8)) : null,
+      profile: platform.token ? () => (platform.nickname || T('Player {id}', { id: String(platform.userId || '').slice(0, 8) })) : null,
     });
     if (platform.token) fetchOnlineBoard().then(render, () => render(null));
     else render(null);
@@ -1204,7 +1237,7 @@ class App {
   _highlightFocus() {
     const t = this.state?.tiles[this.focusTileId];
     if (!t) return;
-    this.ui.announce(`Focused tile ${t.value}. ${this._partnerHint(this.focusTileId)}`);
+    this.ui.announce(T('Focused tile {v}. {hint}', { v: t.value, hint: this._partnerHint(this.focusTileId) }));
     // reflect focus in the 2D board for visible focus ring
     const btn = document.querySelector(`#board2d [data-tile="${this.focusTileId}"]`);
     if (btn && this.root.dataset.board2d === '1') { btn.focus({ preventScroll: true }); return; }
@@ -1233,7 +1266,7 @@ class App {
   // -------------------------------------------------------------- gamepad --
 
   _remapGamepad(action, btnEl) {
-    btnEl.textContent = 'press a button…';
+    btnEl.textContent = T('press a button…');
     const poll = () => {
       const pads = navigator.getGamepads ? navigator.getGamepads() : [];
       for (const pad of pads) {

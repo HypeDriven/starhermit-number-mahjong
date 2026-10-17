@@ -1,6 +1,7 @@
-// Localized strings for the Graphics settings section. The rest of the game is
-// English-only; this panel follows navigator.language (exact locale, then the
-// language's default regional variant, then en-US).
+// Localized strings for the Graphics settings section and the StarHermit
+// account entries; looked up in the game language (js/i18n/i18n.js, Settings →
+// Language), mapped to the nearest shipped locale.
+import { lang } from '../lang.js';
 
 const en = {
   quality: 'Quality',
@@ -198,7 +199,7 @@ export function pickLocale(langs) {
 }
 
 export function gfxStrings(locale) {
-  const loc = locale || (typeof navigator !== 'undefined' ? pickLocale(navigator.languages?.length ? navigator.languages : [navigator.language]) : 'en-US');
+  const loc = locale || pickLocale([lang()]);
   return L[loc] || en;
 }
 
@@ -221,6 +222,6 @@ const SH = {
 };
 export const SH_LOCALES = Object.keys(SH);
 export function shStrings(locale) {
-  const loc = locale || (typeof navigator !== 'undefined' ? pickLocale(navigator.languages?.length ? navigator.languages : [navigator.language]) : 'en-US');
+  const loc = locale || pickLocale([lang()]);
   return SH[loc] || SH['en-US'];
 }

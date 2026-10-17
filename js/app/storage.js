@@ -99,6 +99,55 @@ const DEFAULT_PROGRESS = {
   totals: { pairs: 0, wins: 0, plays: 0 },
 };
 
+/**
+ * Merge two progress records (this device's and another device's cloud save)
+ * so neither side's progress is lost: per journey stage the better stars and
+ * score, the faster time and more completions; union of lessons, achievements
+ * (earliest unlock) and daily history (best score, completed if either);
+ * per challenge the better score; the larger counters. Pure; used at boot
+ * and on a save conflict.
+ */
+export function mergeProgress(local, remote) {
+  const a = { ...DEFAULT_PROGRESS, ...(local || {}) };
+  const b = { ...DEFAULT_PROGRESS, ...(remote || {}) };
+  const num = (x) => (Number.isFinite(x) ? x : 0);
+  const journey = { ...(b.journey || {}) };
+  for (const [id, x] of Object.entries(a.journey || {})) {
+    const y = journey[id];
+    journey[id] = !y ? x : {
+      stars: Math.max(num(x.stars), num(y.stars)),
+      bestScore: Math.max(num(x.bestScore), num(y.bestScore)),
+      bestMs: x.bestMs && y.bestMs ? Math.min(x.bestMs, y.bestMs) : (x.bestMs || y.bestMs),
+      completions: Math.max(num(x.completions), num(y.completions)),
+    };
+  }
+  const lessons = { ...(b.lessons || {}) };
+  for (const [id, x] of Object.entries(a.lessons || {})) lessons[id] = { completed: !!(x?.completed || lessons[id]?.completed) };
+  const achievements = { ...(b.achievements || {}) };
+  for (const [k, t] of Object.entries(a.achievements || {})) achievements[k] = achievements[k] == null ? t : Math.min(num(t), num(achievements[k]));
+  const dailyHistory = { ...(b.dailyHistory || {}) };
+  for (const [d, x] of Object.entries(a.dailyHistory || {})) {
+    const y = dailyHistory[d];
+    dailyHistory[d] = !y ? x : { score: Math.max(num(x.score), num(y.score)), completed: !!(x.completed || y.completed) };
+  }
+  const challenges = { ...(b.challenges || {}) };
+  for (const [id, x] of Object.entries(a.challenges || {})) {
+    const y = challenges[id];
+    challenges[id] = !y || num(x.score) > num(y.score) ? x : y;
+  }
+  const ta = a.totals || {}, tb = b.totals || {};
+  return {
+    ...b, ...a,
+    journey, lessons, achievements, dailyHistory, challenges,
+    masteryXp: Math.max(num(a.masteryXp), num(b.masteryXp)),
+    sessionsPlayed: Math.max(num(a.sessionsPlayed), num(b.sessionsPlayed)),
+    bestStreakDays: Math.max(num(a.bestStreakDays), num(b.bestStreakDays)),
+    lastDailyDate: [a.lastDailyDate, b.lastDailyDate].filter(Boolean).sort().pop() || null,
+    totals: { pairs: Math.max(num(ta.pairs), num(tb.pairs)), wins: Math.max(num(ta.wins), num(tb.wins)), plays: Math.max(num(ta.plays), num(tb.plays)) },
+  };
+}
+
+
 export const store = {
   loadSettings() {
     return { ...DEFAULT_SETTINGS, ...(unpack(getItem(PREFIX + 'settings')) || {}) };

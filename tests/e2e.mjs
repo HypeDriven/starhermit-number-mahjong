@@ -21,9 +21,11 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
+import { stubStarHermit, launchToken } from './starhermit-e2e.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOT = (stage, vp) => `/tmp/number-mahjong-e2e-${stage}-${vp}.png`;
+// Screenshots go to $E2E_SHOT_DIR (default /tmp).
+const SHOT = (stage, vp) => path.join(process.env.E2E_SHOT_DIR || '/tmp', `number-mahjong-e2e-${stage}-${vp}.png`);
 
 // benign GPU/swiftshader noise (from tools/production_game_audit.mjs) + favicon/autoplay
 const browserNoise = /GL Driver Message|GPU stall due to ReadPixels|Automatic fallback to software WebGL|EnableWebGLDeveloperExtensions|favicon|Autoplay/i;
@@ -99,6 +101,70 @@ async function tapTile(page, pos, id) {
   }
 }
 
+/* Signed-in language flow in its own context (stubbed StarHermit API), so the
+   standalone pass keeps its zero-/api guarantee. */
+async function languagePass(browser, vpName, contextOpts) {
+  const context = await browser.newContext({ locale: 'en-US', ...contextOpts });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => { if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`); });
+  try {
+    const calls = await stubStarHermit(page, { preferredLanguage: 'fr-CA' });
+    await page.goto('about:blank');
+    await page.goto(BASE + '/index.html#game_token=' + launchToken(), { waitUntil: 'load' });
+    await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+    await page.waitForFunction(() => window.__nm && window.__nm.phase === 'title', null, { timeout: 15000 });
+    if ((await page.locator('[data-act="play"]').innerText()).trim() !== 'Jouer') throw new Error('title not in French');
+    // A journey round in French, then switch language mid-round from Pause → Settings.
+    await page.click('[data-act="journey"]');
+    await page.click('[data-stage="journey-01"]');
+    if ((await page.locator('.screen h1').innerText()).trim() !== 'Première lueur') throw new Error('setup not in French');
+    await page.click('[data-act="begin"]');
+    await page.waitForFunction(() => window.__nm.phase === 'active', null, { timeout: 15000 });
+    if (!/paires restantes/.test(await page.locator('#pairs-remaining').innerText())) throw new Error('HUD not in French');
+    await page.click('#btn-pause');
+    await page.click('#btn-pause-settings');
+    const choice = page.locator('[data-game-language="choice"]');
+    await choice.scrollIntoViewIfNeeded();
+    const auto = await choice.locator('option').first().textContent();
+    if (!/^Automatique — Français \(Canada\)$/.test(auto)) throw new Error('Automatic label not resolved: ' + auto);
+    await choice.selectOption('it-IT');
+    await page.waitForFunction(() => document.documentElement.lang === 'it-IT');
+    await page.waitForFunction(() => /Salvato/.test(document.querySelector('[data-game-language="status"]').textContent));
+    if (calls.settings['ui.language']?.choice !== 'it-IT') throw new Error('ui.language not saved: ' + JSON.stringify(calls.settings));
+    if ((await page.locator('#settings-own-top h1').innerText()).trim() !== 'Impostazioni') throw new Error('settings not re-rendered');
+    if ((await page.locator('#settings-own-top h2').last().innerText()).trim() !== 'Grafica') throw new Error('graphics heading not re-rendered');
+    await page.getByLabel('Movimento ridotto', { exact: true }).waitFor();
+    await page.locator('[data-game-report="title"]').scrollIntoViewIfNeeded();
+    await page.fill('[data-game-report="title"]', 'Test report');
+    await page.click('[data-game-report="send"]');
+    await page.waitForFunction(() => /Grazie/.test(document.querySelector('[data-game-report="status"]').textContent));
+    if (!calls.reports?.[0] || calls.reports[0].kind !== 'bug') throw new Error('report not posted');
+    await page.screenshot({ path: SHOT('language', vpName) });
+    // Back to the paused round: Italian pause sheet, HUD and rule label, same round.
+    await page.locator('#settings-own-rest [data-act="back"]').scrollIntoViewIfNeeded();
+    await page.click('#settings-own-rest [data-act="back"]');
+    await page.waitForSelector('#overlay-pause:not([hidden])', { state: 'attached' });
+    if ((await page.locator('#pause-title').innerText()).trim() !== 'In pausa') throw new Error('pause sheet not re-rendered');
+    await page.click('#btn-resume');
+    await page.waitForFunction(() => window.__nm.phase === 'active');
+    if (!/Restano|Resta/.test(await page.locator('#pairs-remaining').innerText())) throw new Error('HUD not re-rendered in Italian');
+    if ((await page.locator('#rule-label').innerText()).trim() !== 'Fai 10') throw new Error('rule label not re-rendered');
+    await page.screenshot({ path: SHOT('language-hud', vpName) });
+    // Back to Automatic → fr-CA.
+    await page.click('#btn-pause');
+    await page.click('#btn-pause-settings');
+    await choice.scrollIntoViewIfNeeded();
+    await choice.selectOption('auto');
+    await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+    if (calls.settings['ui.language']?.choice !== 'auto') throw new Error('ui.language auto not saved');
+  } finally {
+    await context.close();
+  }
+  if (errors.length) throw new Error('language pass page errors:\n' + errors.join('\n'));
+}
+
 async function runPass(browser, vpName, contextOpts) {
   const context = await browser.newContext({ locale: 'en-US', ...contextOpts });
   const page = await context.newPage();
@@ -160,6 +226,10 @@ async function runPass(browser, vpName, contextOpts) {
       if (!(await summary()).includes('4096² shadows')) throw new Error('ultra summary missing 4096² shadows');
       await page.click('[data-act="back"]');
       await page.waitForSelector('#app[data-screen="title"]');
+    });
+
+    await step(`${vpName}: Language — Automatic follows the StarHermit preferred language; switching mid-round re-renders; ui.language; report a problem`, async () => {
+      await languagePass(browser, vpName, contextOpts);
     });
 
     await step(`${vpName}: journey map shows stages`, async () => {

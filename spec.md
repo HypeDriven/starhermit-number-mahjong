@@ -34,7 +34,10 @@ and keep lifting until the felt is bare.
 | `js/app/ui.js` | Screens, HUD, 2D board render, toasts, announcements, settings, help, leaderboards, achievements list |
 | `js/app/render3d.js` | Three.js scene: desk, felt, props, tile meshes with canvas-drawn number textures, tweens, particles, dust motes, picking; applies graphics settings live (shadows, post chain, reflections, detail, pixel ratio, adaptive resolution) |
 | `js/app/gfx.js` | Pure graphics quality model: presets, per-category tiers, GPU detection (`detectPreset`), `resolve`, `presetTier`, `choosePreset`, `describe` |
-| `js/app/gfx-strings.js` | Graphics-panel strings for en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT, chosen from `navigator.language` |
+| `js/app/gfx-strings.js` | Graphics-panel and StarHermit account strings for en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT, looked up in the game language |
+| `js/i18n/strings.js`, `js/i18n/i18n.js` | Translation tables (English keys, nine locales) and the runtime (`window.NMI18N`, live switching through `sh-language.js`, static-markup translation, `nm-language` event); classic scripts loaded before `js/app/main.js` |
+| `js/lang.js` | `T` / `N` / `lang` / `onLanguage` for the ES modules over `NMI18N` (English keys unchanged in Node, so rules and server code stay deterministic) |
+| `sh-language.js` | Shared StarHermit language resolver (unmodified copy) |
 | `vendor/three/addons/` | three@0.160.1 addons: EffectComposer, RenderPass, ShaderPass, OutputPass, GTAOPass, UnrealBloomPass, SMAAPass, FXAA/SMAA/GTAO shaders, RoomEnvironment, RoundedBoxGeometry |
 | `js/app/audio.js` | WebAudio buses, sample playback from `sfx/`, procedural fallback voices, ambience, generative music, captions |
 | `js/app/storage.js` | Checksummed, versioned `localStorage` with in-memory fallback: settings, progress, snapshots, replays, local boards |
@@ -44,6 +47,8 @@ and keep lifting until the felt is bare.
 | `server.js` | Local static host; its legacy `/api/v1/time` and `/api/v1/scores` routes are not called by the client |
 | `tests/run-tests.mjs` | 87 headless assertions over rules, content, replay, storage |
 | `tests/gfx.test.mjs` | `node --test` unit tests for the graphics model and its locale strings |
+| `tests/platform.test.mjs` | `node --test`: the adapter over the real SDK with an ETag-versioned fake server, including a 412 save conflict merged and re-saved |
+| `tests/i18n.test.mjs` | `node --test`: every key used in markup and code (and every engine rejection reason) exists in all nine locales, content texts, live switching |
 | `tests/browser-test.mjs` | 30 assertions in headless Chrome over the real DOM and canvas |
 | `tests/e2e.mjs` | Full desktop + mobile playthrough via playwright-core |
 | `sfx/` | 37 Opus clips, `manifest.txt` (canonical), `manifest.json` (generator input), `manifest.md` (prompt history) |
@@ -326,7 +331,7 @@ anti-aliasing (off/FXAA/SMAA/MSAA), reflections, scene detail (plain/detailed), 
 scale × adaptive scale`, with caps Low 1, Balanced 1.5, High/Ultra 2 (Ultra scale 1.25). Low renders
 straight to the canvas with no composer, shadows, particles or props — no costlier than the original
 Low tier. If the post chain cannot be built the board renders without it and the panel says so. The
-panel's strings are localized; the rest of the game is English.
+panel's strings follow the game language (§10).
 
 **Visual assets the design calls for**
 
@@ -395,20 +400,45 @@ setting. The context is created on the first pointer or key gesture.
 
 ## 10. Localization
 
-The shipping language set is **en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT**.
+**Languages:** en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT — every player-facing
+string (title and menus, journey stage names, challenge blurbs, lesson scripts, rule descriptions,
+setup card, HUD, announcements and toasts, rejection reasons, results, achievements, help, settings,
+leaderboards, sound captions, account chip) ships in all nine. Numerals, seeds, scores and times are
+formatted only at presentation time from integers held in state.
 
-Today all player-facing strings are authored inline in English in `js/app/ui.js` (screens, help,
-settings), `js/app/main.js` (announcements, toasts), `js/rules/content.js` (stage names, challenge
-blurbs, lesson scripts, `describeRule`) and `index.html`; `<html lang="en">` is fixed. The one
-exception is the Settings → Graphics section, whose strings come from `js/app/gfx-strings.js` in all
-nine shipping locales, picked from `navigator.languages` (exact tag, then the language's default
-region, then en-US). Elsewhere there is no string table and no locale negotiation — see **Design
-intent not yet implemented**. The intended
-design: one catalogue per locale keyed by string id, selected from the StarHermit launch token's
-locale claim and falling back to `navigator.languages` then `en-US`; regional variants inherit from
-their base (`fr-CA` ← `fr-FR`). Layout already tolerates expansion — every button, badge and card
-wraps rather than truncating — and the design allowance is +40% over en-US for German, with numerals,
-seeds, scores and times formatted only at presentation time from integers held in state.
+**Where strings live:** `js/i18n/strings.js` holds the tables keyed by the English source text (en-GB,
+es-ES and fr-CA list only their differences — *Ajustes*, *pointage*). `js/i18n/i18n.js`
+(`window.NMI18N`) translates the static `index.html` shell in place (text nodes and
+`aria-label`/`title`; the rule label and account name are `data-i18n-skip` and set by code). The
+modules reach it through `js/lang.js` (`T`, `N`, `lang`, `onLanguage`); `js/rules/content.js` marks its
+names, blurbs, scripts and theme labels as keys and builds `describeRule` text through it, while the
+engine's `REJECT` reasons stay English codes that the UI translates. In Node (`server.js`, tests) the
+keys come back unchanged, so rules, replays and hashes are language-independent. Graphics and account
+strings (`js/app/gfx-strings.js`) follow the same current language.
+
+**Language setting:** Settings → **Language → Game language** (rendered by the shared
+`game-options.js` from the `sh-language.js` instance inside the Settings screen's `#gfx-section`,
+which carries `data-options-graphics`) offers **Automatic — <resolved language>** plus the nine locales
+by native name, with a status line (Saved to account / Saved on this device / Account sync
+unavailable). It is reachable from the title and mid-round (Pause → Settings). A change applies
+immediately without ending the round: the shell is re-translated, `document.documentElement.lang` is
+set, `nm-language` fires, the open screen is rebuilt from its remembered renderer (`UI.relabel`) —
+except Settings, whose own boxes (`#settings-own-top`, `#gfx-own`, `#settings-own-rest`) are redrawn in
+place so the shared sections stay mounted — and the HUD, 2D board labels, lesson banner, key titles and
+account chip re-render.
+
+**Resolution order** (`sh-language.js`): explicit game choice → for Automatic, the StarHermit
+account's `preferredLanguage` (`GET /api/v1/me/language`, signed in only) → `navigator.languages` →
+en-US, mapping tags to the nearest shipped locale (es-MX → es-419, en-AU → en-GB, fr → fr-FR,
+pt-PT → pt-BR). The choice (`auto` or a locale) is stored per player in
+`localStorage['number-mahjong.language.<user|guest>']` and, signed in, in the per-player settings key
+`ui.language` as `{ choice }`; a failed settings read never overwrites it and the game never writes
+the platform preference. `?lang=<tag>` forces a locale for the page load (QA links) and hides the
+selector.
+
+**Expansion:** every button, badge and card wraps rather than truncating; the settings column may
+shrink below its content (`minmax(0, 1fr)`, selects capped at about half the row) so long German
+option text truncates inside its select and long labels wrap at 390 px.
 
 ---
 
@@ -458,9 +488,24 @@ adapts it to the game. Without a token the SDK makes no request.
 - *Identity* — the profile nickname (fallback `Player ` + id prefix) and avatar show in the
   account chip and the title status line.
 - *Cloud save* — progress + settings mirror to the `game:<slug>` slot (2 s debounce, `pagehide`
-  flush, remote-preferred load guarded by the last-synced timestamp, with
-  nothing written until that load settles; localStorage stays the
-  offline cache; sync status in the account chip).
+  flush, nothing written until the boot load settles; localStorage stays the offline cache; sync
+  status in the account chip). Writes after a load are conditional on the version read (ETag). At
+  boot the cloud progress is **merged** with this device's (`storage.mergeProgress`: per journey
+  stage the better stars/score, faster time and more completions; union of lessons, achievements
+  with the earliest unlock, and daily history with the best score; the better challenge score; the
+  larger totals and mastery XP); cloud settings are applied only when that save is newer than the
+  last one this device accepted, and the merge is written back when it adds anything. When another
+  device saved first the SDK refuses the write and emits `saveconflict`; `platform.resolveConflict`
+  reloads the slot, `main.js` merges it the same way (a round in progress is untouched) and the merge
+  is written again.
+- *Language* — Automatic follows the account's preferred language; an explicit choice is saved as the
+  per-player setting `ui.language` (§10).
+- *Report a problem* — Settings shows a **Report a problem** section to signed-in players (from
+  `game-options.js`): a title and optional details filed through `StarHermit.reportBug` with a small
+  non-personal `context.json` (viewport, language, FPS cap, audio limit). Uncaught errors are filed as
+  crash reports through `StarHermit.captureCrashes` (SDK-capped).
+- *Account chip* — fixed top-right on menus; hidden during play so it never covers the HUD's pause
+  button.
 - *Settings KV* — audio levels, mute, graphics, camera/board view, theme, accessibility options
   and gamepad remaps are patched to the per-player settings store on every change and applied
   after the cloud doc on boot (the account value wins).
@@ -530,7 +575,11 @@ synchronisation — phase, legal pairs, tile screen positions.
 
 ## 14. Testing and acceptance criteria
 
-`npm test` runs `tests/run-tests.mjs` (**87 assertions**) and `tests/gfx.test.mjs` (7 `node --test`
+`npm test` runs `tests/run-tests.mjs` (**87 assertions**), `tests/platform.test.mjs` (adapter over
+the real SDK with an ETag-versioned fake server: token, profile, cloud save, settings KV, controls, a
+412 conflict merged and re-saved, zero requests standalone), `tests/i18n.test.mjs` (every markup/code
+key and engine rejection reason in all nine locales with placeholders intact, content texts, live
+switching) and `tests/gfx.test.mjs` (7 `node --test`
 cases: GPU detection, resolve with presets/overrides/scale clamp, preset-clears-overrides, preset
 completeness, the summary, and graphics strings in every locale). `run-tests.mjs` covers: RNG determinism and forking; construction,
 exposure and side-lock; every legal action and every rejection reason; selection toggling; scoring
@@ -545,7 +594,11 @@ raycast path, pause/hint/undo, the authoritative clock stopping while paused, pe
 reload, ranked-daily undo rejection, and tile ghosting after removal, with zero console errors.
 
 `tests/e2e.mjs` runs the playthrough above twice — desktop 1280×800 and mobile 390×844 with touch —
-and asserts 24 checkpoints plus a console error/warning budget of zero (a benign GPU/autoplay noise filter aside).
+and asserts 26 checkpoints plus a console error/warning budget of zero (a benign GPU/autoplay noise
+filter aside). The **Language** checkpoint runs in its own signed-in context with a stubbed StarHermit
+API: Automatic resolves to fr-CA from `GET /api/v1/me/language`; a journey round starts in French;
+Pause → Settings → Italian redraws the settings boxes, then the pause sheet, HUD and rule label without
+ending the round, and PUTs `ui.language`; Report a problem posts to `/reports`; back to Automatic.
 
 **QA bar, as checkable statements.**
 
@@ -585,7 +638,6 @@ and asserts 24 checkpoints plus a console error/warning budget of zero (a benign
 
 ## 16. Known limitations
 
-- **Single language.** All strings are inline English; the locale set in §10 is not yet implemented.
 - **Leaderboards are personal-best-first locally.** Signed in, Daily rounds and won Challenges
   reach the platform `high-score` board (range-checked, not replay-verified); every other board a
   player sees is local to their device.
@@ -603,7 +655,6 @@ and asserts 24 checkpoints plus a console error/warning budget of zero (a benign
 
 ## Design intent not yet implemented
 
-- **Localization** (§10): no string catalogue, no locale negotiation, `<html lang="en">` fixed.
 - **`holdToConfirm`** exists in the settings defaults but has no UI control and no behaviour.
 - **`tutorialSeen`, `sessionsPlayed`, `bestStreakDays`** are persisted but never written to.
 - **Telemetry** is collected into a 200-event in-memory ring and never leaves the device or is read.
@@ -615,4 +666,4 @@ and asserts 24 checkpoints plus a console error/warning budget of zero (a benign
 
 ## Sound and frame-rate options
 
-The options panel includes Sound controls for master, music, effects and UI volume, a mute that preserves volume levels, and an Auto or manual concurrent-sound limit (1–64). Changes apply immediately with perceptual volume curves. A shared allocator bounds Web Audio and media playback, including loops and scheduled sources. Graphics includes Auto display refresh or a custom maximum frame rate from 1–1000 FPS; rendering is paced independently of simulation and input. Preferences persist locally, with FPS stored per detected GPU, and reconcile with Starhermit settings when signed in. The controls support keyboard and touch input and the supported English, Spanish, German, French, Portuguese and Italian locales.
+The options panel includes Sound controls for master, music, effects and UI volume, a mute that preserves volume levels, and an Auto or manual concurrent-sound limit (1–64). Changes apply immediately with perceptual volume curves. A shared allocator bounds Web Audio and media playback, including loops and scheduled sources. Graphics includes Auto display refresh or a custom maximum frame rate from 1–1000 FPS; rendering is paced independently of simulation and input. Preferences persist locally, with FPS stored per detected GPU, and reconcile with Starhermit settings when signed in. The controls support keyboard and touch input and follow the game language (§10).
