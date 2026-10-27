@@ -460,26 +460,27 @@ section('tie-break ordering');
 }
 
 // ---------------------------------------------------------------------------
-section('storage quota fallback');
+section('device store quota fallback');
 {
   const values = new Map();
   let denied = false;
-  globalThis.localStorage = {
-    getItem: k => values.get(k) ?? null,
-    setItem(k, v) { if (denied) throw new Error('Quota exceeded'); values.set(k, v); },
-    removeItem(k) { if (denied) throw new Error('Storage denied'); values.delete(k); },
-  };
-  const { store } = await import('../js/app/storage.js?quota-regression');
-  store.saveSettings({ textScale: 1 });
+  const { createStore } = await import('../js/store.js');
+  const store = createStore({
+    get: (k) => values.get(k) ?? null,
+    set(k, v) { if (denied) throw new RangeError('quota'); values.set(k, v); },
+    remove(k) { if (denied) throw new Error('Storage denied'); values.delete(k); },
+    keys: () => [...values.keys()],
+  });
+  store.saveSessionSnapshot('quota', { tick: 1 });
   denied = true;
-  store.saveSettings({ textScale: 2 });
-  ok(store.loadSettings().textScale === 2, 'fallback supersedes stale persistent settings');
   store.saveSessionSnapshot('quota', { tick: 7 });
-  ok(store.loadSessionSnapshot('quota').tick === 7, 'fallback session is readable');
+  ok(store.loadSessionSnapshot('quota').tick === 7, 'fallback supersedes the stale device copy');
   ok(store.listSessionSnapshots().some(s => s.contentId === 'quota'), 'fallback session is listed');
   store.clearSessionSnapshot('quota');
   ok(store.loadSessionSnapshot('quota') === null, 'fallback deletion survives storage denial');
-  delete globalThis.localStorage;
+  denied = false;
+  values.set('number-mahjong.board.x', '{"body":"tampered","sum":"0"}');
+  ok(store.loadBoard('x').length === 0, 'a corrupt record reads as absent');
 }
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.error('FAILURES:\n' + failures.map(f => ' - ' + f).join('\n')); process.exit(1); }

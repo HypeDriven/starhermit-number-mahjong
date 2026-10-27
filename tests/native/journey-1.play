@@ -1,0 +1,73 @@
+# Journey stage 1 "First Light" cleared on the 3D desk (tools/gen-plays.mjs; generated: do not edit): the title, the journey map, the setup,
+# the countdown, a hint, a pause with Settings and Help opened from it and back, one pair, an undo, the pair again,
+# the rest of the board by its solution, the results with three stars, and the next stage's setup.
+until 300 Number Mahjong
+frames 30
+save title
+click =Journey
+until 60 Forty-four
+frames 10
+save journey
+click Stage 1: First Light
+until 60 Start round
+frames 10
+save setup
+click =Start round
+until 300 3 pairs left
+until 300 Observe
+frames 40
+key KeyH 1
+until 60 Hint: 
+frames 30
+save hint
+key KeyP 1
+until 60 =Resume
+frames 10
+save pause
+click =Settings
+until 60 Board view
+frames 10
+click =Back
+until 60 =Resume
+frames 10
+click =Help
+until 60 Fair play
+frames 10
+save help
+click =Back
+until 60 =Resume
+frames 10
+click =Resume
+frames 20
+frames 5
+click =tile 5, row 1 column 1, top of stack
+frames 5
+click =tile 5, row 1 column 6, top of stack
+frames 12
+until 60 2 pairs left
+frames 10
+click =Undo
+until 60 3 pairs left
+frames 10
+frames 5
+click =tile 5, row 1 column 6, top of stack
+frames 12
+frames 5
+click =tile 1, row 1 column 2, top of stack
+frames 5
+click =tile 9, row 1 column 4, top of stack
+frames 12
+frames 5
+click =tile 4, row 1 column 3, top of stack
+frames 5
+click =tile 6, row 1 column 5, top of stack
+frames 12
+until 300 Board Cleared
+frames 30
+expect ★★★
+save results
+click =Next: Brass and Glass
+until 60 Start round
+frames 10
+expect Brass and Glass
+save next-setup

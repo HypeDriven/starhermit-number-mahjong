@@ -1,0 +1,76 @@
+# The 2D tile board (tools/gen-plays.mjs; generated: do not edit): Settings › Use 2D board, stage 1 cleared by clicking the tile buttons, then
+# stage 2 from the results' Next with its first tile chosen by the keyboard (arrows and Enter) and the rest clicked.
+until 300 Number Mahjong
+frames 30
+click =Settings
+until 60 Board view
+frames 10
+click =Use 2D board instead of 3D
+frames 10
+save settings-2d
+click =Back
+until 60 Number Mahjong
+frames 10
+click =Play
+until 60 Start round
+frames 10
+click =Start round
+until 300 3 pairs left
+until 300 Observe
+frames 40
+save board2d
+frames 5
+click =tile 5, row 1 column 1, top of stack
+frames 5
+click =tile 5, row 1 column 6, top of stack
+frames 12
+frames 5
+click =tile 1, row 1 column 2, top of stack
+frames 5
+click =tile 9, row 1 column 4, top of stack
+frames 12
+frames 5
+click =tile 4, row 1 column 3, top of stack
+frames 5
+click =tile 6, row 1 column 5, top of stack
+frames 12
+until 300 Board Cleared
+frames 30
+click =Next: Brass and Glass
+until 60 Start round
+frames 10
+click =Start round
+until 300 4 pairs left
+until 300 Observe
+frames 40
+key ArrowRight 1
+frames 5
+key Enter 1
+until 60 =Undo
+frames 10
+save board2d-keyboard
+key Escape 1
+frames 10
+frames 5
+click =tile 1, row 1 column 1, top of stack
+frames 5
+click =tile 9, row 2 column 3, top of stack
+frames 12
+frames 5
+click =tile 7, row 1 column 2, top of stack
+frames 5
+click =tile 3, row 1 column 3, top of stack
+frames 12
+frames 5
+click =tile 5, row 1 column 4, top of stack
+frames 5
+click =tile 5, row 2 column 4, top of stack
+frames 12
+frames 5
+click =tile 7, row 2 column 1, top of stack
+frames 5
+click =tile 3, row 2 column 2, top of stack
+frames 12
+until 300 Board Cleared
+frames 30
+save board2d-results

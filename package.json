@@ -1,17 +1,21 @@
 {
   "name": "number-mahjong",
   "version": "1.0.0",
-  "description": "Number Mahjong — an observatory-desk number-pair puzzle. Browser game with deterministic rules engine, Three.js presentation, and StarHermit packaging.",
+  "private": true,
   "type": "module",
+  "description": "Number Mahjong — an observatory-desk number-pair puzzle on the StarHermit engine.",
   "scripts": {
-    "start": "node server.js 8080",
-    "test": "node tests/run-tests.mjs && node --test tests/gfx.test.mjs tests/platform.test.mjs tests/i18n.test.mjs",
-    "test:browser": "node tests/run-browser.mjs",
-    "test:e2e": "node tests/e2e.mjs"
+    "test": "npm run test:unit && npm run test:native",
+    "test:unit": "node tests/run-tests.mjs && node --test tests/store.test.mjs tests/i18n.test.mjs",
+    "test:native": "node tests/native.mjs",
+    "test:browser": "node tools/browser-play.mjs .",
+    "package": "node tools/package-web.mjs",
+    "css": "node tools/css.mjs",
+    "plays": "node tools/gen-plays.mjs",
+    "start": "node server.js 8080"
   },
   "license": "SEE LICENSE IN LICENSE.md",
   "devDependencies": {
-    "playwright-core": "^1.62.1",
-    "puppeteer-core": "^25.10.0"
+    "playwright-core": "^1.62.1"
   }
 }

@@ -1,0 +1,73 @@
+# The "Sprint: Ninety Seconds" challenge cleared in a phone held sideways, by touch (tools/gen-plays.mjs; generated: do not edit):
+# the timer runs, the board is cleared by its solution, the results carry a time bonus.
+# viewport 844x390@3
+until 300 Number Mahjong
+frames 30
+touch =Challenges
+until 60 Constrained goals
+frames 10
+save challenges
+touch =Attempt
+until 60 Start round
+frames 10
+expect Clear the board before the lens closes
+save sprint-setup
+touch =Start round
+until 300 10 pairs left
+until 300 Observe
+frames 40
+save sprint-play
+frames 5
+touch =tile 4, row 1 column 1, top of stack
+frames 5
+touch =tile 6, row 2 column 6, top of stack
+frames 12
+frames 5
+touch =tile 3, row 1 column 2, top of stack
+frames 5
+touch =tile 7, row 2 column 2, top of stack
+frames 12
+frames 5
+touch =tile 1, row 1 column 3, top of stack
+frames 5
+touch =tile 9, row 2 column 1, top of stack
+frames 12
+frames 5
+touch =tile 2, row 1 column 4, top of stack
+frames 5
+touch =tile 8, row 1 column 5, top of stack
+frames 12
+frames 5
+touch =tile 1, row 1 column 6, top of stack
+frames 5
+touch =tile 9, row 4 column 4, top of stack
+frames 12
+frames 5
+touch =tile 2, row 2 column 3, top of stack
+frames 5
+touch =tile 8, row 3 column 1, top of stack
+frames 12
+frames 5
+touch =tile 3, row 2 column 4, top of stack
+frames 5
+touch =tile 7, row 3 column 4, top of stack
+frames 12
+frames 5
+touch =tile 2, row 2 column 5, top of stack
+frames 5
+touch =tile 8, row 3 column 2, top of stack
+frames 12
+frames 5
+touch =tile 6, row 3 column 3, top of stack
+frames 5
+touch =tile 4, row 3 column 5, top of stack
+frames 12
+frames 5
+touch =tile 3, row 3 column 6, top of stack
+frames 5
+touch =tile 7, row 4 column 3, top of stack
+frames 12
+until 300 Board Cleared
+frames 30
+expect Time bonus
+save sprint-results

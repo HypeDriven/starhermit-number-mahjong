@@ -1,0 +1,52 @@
+# The Daily's setup and round left from the pause sheet ("Round Left" results), then an Expert practice
+# round with a reshuffle, the board view's camera reset, Restart round and Leave round. (Generated alongside the others.)
+until 300 Number Mahjong
+frames 30
+click Daily Challenge
+until 60 Next daily in
+frames 10
+expect RANKED
+save daily-setup
+click =Start round
+until 300 14 pairs left
+until 300 Observe
+frames 40
+save daily-play
+key Escape 1
+until 60 =Resume
+frames 10
+click =Leave round
+until 120 Round Left
+frames 20
+save daily-left
+click =Back to title
+until 60 Number Mahjong
+frames 10
+click =Practice
+until 60 Unranked.
+frames 10
+click =Start Expert
+until 60 Start round
+frames 10
+click =Start round
+until 300 14 pairs left
+until 300 Observe
+frames 40
+key KeyR 1
+frames 40
+key KeyC 1
+frames 60
+save practice-reshuffled
+key KeyP 1
+until 60 =Resume
+frames 10
+click =Restart round
+until 300 14 pairs left
+until 300 Observe
+frames 40
+key KeyP 1
+until 60 =Resume
+frames 10
+click =Leave round
+until 120 Round Left
+frames 10

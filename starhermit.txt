@@ -1,18 +1,50 @@
 name=Number Mahjong
 description=Remove available number-tile pairs that satisfy the current matching rule until the board is clear.
-launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
 server=score-script.js
 version=1.0.0
 cover=cover.jpg
+
+# StarHermit engine script game: one package, played natively by the
+# StarHermit client and in browsers by the engine's web runtime. Browsers open
+# launch=index.html, the loader `npm run package` writes (it pins the engine
+# on wiki.starhermit.com by hash; never edit it). Re-run `npm run package`
+# after every change and commit index.html + starhermit-files.json.
+launch=index.html
+engine.api=1
+engine.entry=native/main.ts
+engine.version=1.19.1
+engine.minor=20
+engine.capabilities=platform,storage,clipboard
+
+# Keyboard controls (players rebind keys and pads in the runtime's Options).
+# Tiles also take the pointer or a finger on the 3D board (tap a tile, then
+# its partner); every action also has a button.
+control.left=ArrowLeft | Focus left
+control.right=ArrowRight | Focus right
+control.up=ArrowUp | Focus up
+control.down=ArrowDown | Focus down
+control.choose=Enter+Space+NumpadEnter | Choose focused tile
 control.back=Escape | Cancel selection / pause
 control.pause=KeyP | Pause / resume
 control.hint=KeyH | Hint
 control.reshuffle=KeyR | Reshuffle
 control.undo=KeyU | Undo
 control.camera=KeyC | Reset camera
-control.left=ArrowLeft | Focus left
-control.right=ArrowRight | Focus right
-control.up=ArrowUp | Focus up
-control.down=ArrowDown | Focus down
-control.choose=Enter+Space+NumpadEnter | Choose focused tile
+engine.group.left=Board
+engine.group.hint=Assists
+engine.group.back=Round
+
+# Gamepad defaults (the browser build's pad mapping): the D-pad or left stick
+# moves the focus, A chooses, B cancels the selection, X undoes, Y hints,
+# Start pauses; the right stick press resets the camera.
+engine.gamepad.left=DpadLeft+LeftStickLeft
+engine.gamepad.right=DpadRight+LeftStickRight
+engine.gamepad.up=DpadUp+LeftStickUp
+engine.gamepad.down=DpadDown+LeftStickDown
+engine.gamepad.choose=South
+engine.gamepad.back=East
+engine.gamepad.undo=West
+engine.gamepad.hint=North
+engine.gamepad.pause=Start
+engine.gamepad.camera=RightStickPress

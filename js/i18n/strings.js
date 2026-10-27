@@ -9,23 +9,10 @@
   'use strict';
   var ROWS = [
     // ---- static markup
-    ['Skip to board', 'Saltar al tablero', 'Zum Spielbrett springen', 'Aller au plateau', 'Pular para o tabuleiro', 'Vai al tabellone'],
-    ['Game board and status', 'Tablero y estado del juego', 'Spielbrett und Status', 'Plateau et état de la partie', 'Tabuleiro e status do jogo', 'Tabellone e stato della partita'],
-    ['Round status', 'Estado de la ronda', 'Rundenstatus', 'État de la manche', 'Status da rodada', 'Stato del round'],
-    ['Board', 'Tablero', 'Brett', 'Plateau', 'Tabuleiro', 'Tabellone'],
-    ['chain', 'cadena', 'Kette', 'chaîne', 'sequência', 'catena'],
     ['Pause (Esc)', 'Pausa (Esc)', 'Pause (Esc)', 'Pause (Échap)', 'Pausar (Esc)', 'Pausa (Esc)'],
     ['Tiles', 'Fichas', 'Steine', 'Tuiles', 'Peças', 'Tessere'],
-    ['3D view unavailable', 'Vista 3D no disponible', '3D-Ansicht nicht verfügbar', 'Vue 3D indisponible', 'Visão 3D indisponível', 'Vista 3D non disponibile'],
-    ['WebGL could not be initialised on this device, so the accessible 2D board is shown instead. Your progress and account state are unaffected.', 'No se pudo iniciar WebGL en este dispositivo, así que se muestra el tablero 2D accesible. Tu progreso y tu cuenta no se ven afectados.', 'WebGL konnte auf diesem Gerät nicht gestartet werden, daher wird das barrierefreie 2D-Brett gezeigt. Fortschritt und Konto bleiben unberührt.', 'WebGL n’a pas pu démarrer sur cet appareil : le plateau 2D accessible est affiché. Votre progression et votre compte ne sont pas touchés.', 'Não foi possível iniciar o WebGL neste dispositivo, então o tabuleiro 2D acessível é exibido. Seu progresso e sua conta não são afetados.', 'Impossibile avviare WebGL su questo dispositivo: viene mostrato il tabellone 2D accessibile. Progressi e account non cambiano.'],
-    ['The 2D board is active. You can re-enable the 3D observatory in Settings → Graphics.', 'El tablero 2D está activo. Puedes volver a activar el observatorio 3D en Configuración → Gráficos.', 'Das 2D-Brett ist aktiv. Das 3D-Observatorium lässt sich unter Einstellungen → Grafik wieder einschalten.', 'Le plateau 2D est actif. Réactivez l’observatoire 3D dans Paramètres → Graphismes.', 'O tabuleiro 2D está ativo. Você pode reativar o observatório 3D em Configurações → Gráficos.', 'Il tabellone 2D è attivo. Puoi riattivare l’osservatorio 3D in Impostazioni → Grafica.'],
-    ['Round actions', 'Acciones de la ronda', 'Rundenaktionen', 'Actions de la manche', 'Ações da rodada', 'Azioni del round'],
-    ['Hint (H)', 'Pista (H)', 'Tipp (H)', 'Indice (H)', 'Dica (H)', 'Suggerimento (H)'],
     ['Hint', 'Pista', 'Tipp', 'Indice', 'Dica', 'Suggerimento'],
-    ['Reshuffle (R)', 'Rebarajar (R)', 'Neu mischen (R)', 'Remélanger (R)', 'Embaralhar (R)', 'Rimescola (R)'],
-    ['Reshuffle', 'Rebarajar', 'Neu mischen', 'Remélanger', 'Embaralhar', 'Rimescola'],
     ['Shuffle', 'Barajar', 'Mischen', 'Mélanger', 'Embaralhar', 'Mescola'],
-    ['Undo (U)', 'Deshacer (U)', 'Rückgängig (U)', 'Annuler (U)', 'Desfazer (U)', 'Annulla (U)'],
     ['Undo', 'Deshacer', 'Rückgängig', 'Annuler', 'Desfazer', 'Annulla'],
     ['Paused', 'En pausa', 'Pausiert', 'En pause', 'Pausado', 'In pausa'],
     ['Resume', 'Reanudar', 'Fortsetzen', 'Reprendre', 'Continuar', 'Riprendi'],
@@ -59,7 +46,6 @@
     ['Win streak: {n}.', 'Racha de victorias: {n}.', 'Siegesserie: {n}.', 'Série de victoires : {n}.', 'Sequência de vitórias: {n}.', 'Serie di vittorie: {n}.'],
     ['deterministic seeds · offline capable', 'semillas deterministas · funciona sin conexión', 'deterministische Seeds · offline spielbar', 'graines déterministes · jouable hors ligne', 'sementes determinísticas · funciona offline', 'semi deterministici · funziona offline'],
     ['Player', 'Jugador', 'Spieler', 'Joueur', 'Jogador', 'Giocatore'],
-    ['Player {id}', 'Jugador {id}', 'Spieler {id}', 'Joueur {id}', 'Jogador {id}', 'Giocatore {id}'],
     ['saving…', 'guardando…', 'wird gespeichert …', 'enregistrement…', 'salvando…', 'salvataggio…'],
     ['synced ✓', 'sincronizado ✓', 'synchronisiert ✓', 'synchronisé ✓', 'sincronizado ✓', 'sincronizzato ✓'],
 
@@ -242,7 +228,6 @@
     ['Cannot resume this round', 'No se puede reanudar esta ronda', 'Diese Runde kann nicht fortgesetzt werden', 'Impossible de reprendre cette manche', 'Não é possível retomar esta rodada', 'Impossibile riprendere questo round'],
     ['Could not set up today’s daily (clock problem). Using this device’s clock — try again.', 'No se pudo preparar el diario de hoy (problema de hora). Se usa la hora de este dispositivo: inténtalo de nuevo.', 'Die heutige Tagesrunde ließ sich nicht einrichten (Uhrproblem). Die Uhr dieses Geräts wird verwendet – versuch es erneut.', 'Impossible de préparer le défi du jour (problème d’horloge). L’horloge de cet appareil est utilisée — réessayez.', 'Não foi possível preparar o diário de hoje (problema de relógio). Usando o relógio deste dispositivo — tente de novo.', 'Impossibile preparare la sfida di oggi (problema d’orologio). Uso l’orologio di questo dispositivo: riprova.'],
     ['Achievement: {name}', 'Logro: {name}', 'Erfolg: {name}', 'Succès : {name}', 'Conquista: {name}', 'Obiettivo: {name}'],
-    ['press a button…', 'pulsa un botón…', 'Taste drücken …', 'appuyez sur un bouton…', 'pressione um botão…', 'premi un pulsante…'],
     // engine rejection reasons (js/rules/engine.js REJECT), shown through T()
     ['round is not active', 'la ronda no está activa', 'die Runde läuft nicht', 'la manche n’est pas en cours', 'a rodada não está ativa', 'il round non è attivo'],
     ['unknown tile', 'ficha desconocida', 'unbekannter Stein', 'tuile inconnue', 'peça desconhecida', 'tessera sconosciuta'],
@@ -313,27 +298,17 @@
 
     // ---- settings
     ['Audio', 'Audio', 'Audio', 'Audio', 'Áudio', 'Audio'],
-    ['Music', 'Música', 'Musik', 'Musique', 'Música', 'Musica'],
-    ['Effects', 'Efectos', 'Effekte', 'Effets', 'Efeitos', 'Effetti'],
-    ['Ambience', 'Ambiente', 'Umgebung', 'Ambiance', 'Ambiente', 'Ambiente'],
-    ['Mute all', 'Silenciar todo', 'Alles stumm', 'Tout couper', 'Silenciar tudo', 'Silenzia tutto'],
-    ['Mute all audio', 'Silenciar todo el audio', 'Gesamten Ton stummschalten', 'Couper tout le son', 'Silenciar todo o áudio', 'Silenzia tutto l’audio'],
     ['Sound captions (text cues for meaningful audio)', 'Subtítulos de sonido (avisos de texto para el audio importante)', 'Ton-Untertitel (Texthinweise für wichtige Geräusche)', 'Sous-titres des sons (repères texte pour les sons importants)', 'Legendas de som (avisos de texto para áudios importantes)', 'Sottotitoli audio (indicazioni testuali per i suoni importanti)'],
-    ['Sound captions', 'Subtítulos de sonido', 'Ton-Untertitel', 'Sous-titres des sons', 'Legendas de som', 'Sottotitoli audio'],
     ['Graphics', 'Gráficos', 'Grafik', 'Graphismes', 'Gráficos', 'Grafica'],
-    ['Reduced motion', 'Movimiento reducido', 'Weniger Bewegung', 'Animations réduites', 'Movimento reduzido', 'Movimento ridotto'],
     ['Board view', 'Vista del tablero', 'Brettansicht', 'Vue du plateau', 'Visão do tabuleiro', 'Vista del tabellone'],
     ['Camera view', 'Vista de cámara', 'Kameraansicht', 'Vue de la caméra', 'Visão da câmera', 'Vista della telecamera'],
     ['default', 'predeterminada', 'Standard', 'par défaut', 'padrão', 'predefinita'],
     ['top', 'desde arriba', 'von oben', 'du dessus', 'de cima', 'dall’alto'],
     ['low', 'baja', 'flach', 'basse', 'baixa', 'bassa'],
     ['Use 2D board instead of 3D', 'Usar tablero 2D en lugar de 3D', '2D-Brett statt 3D verwenden', 'Utiliser le plateau 2D au lieu de la 3D', 'Usar tabuleiro 2D em vez de 3D', 'Usa il tabellone 2D invece del 3D'],
-    ['Use 2D board', 'Usar tablero 2D', '2D-Brett verwenden', 'Utiliser le plateau 2D', 'Usar tabuleiro 2D', 'Usa il tabellone 2D'],
     ['Cosmetic theme', 'Tema estético', 'Optisches Design', 'Thème visuel', 'Tema visual', 'Tema estetico'],
     ['follow the round', 'según la ronda', 'wie die Runde', 'selon la manche', 'conforme a rodada', 'come il round'],
     ['Accessibility', 'Accesibilidad', 'Barrierefreiheit', 'Accessibilité', 'Acessibilidade', 'Accessibilità'],
-    ['Larger text', 'Texto más grande', 'Größerer Text', 'Texte plus grand', 'Texto maior', 'Testo più grande'],
-    ['High contrast', 'Alto contraste', 'Hoher Kontrast', 'Contraste élevé', 'Alto contraste', 'Contrasto elevato'],
     ['Colour-vision palette', 'Paleta para daltonismo', 'Farbsehen-Palette', 'Palette pour daltonisme', 'Paleta para daltonismo', 'Tavolozza per daltonismo'],
     ['standard', 'estándar', 'Standard', 'standard', 'padrão', 'standard'],
     ['deuteranopia', 'deuteranopía', 'Deuteranopie', 'deutéranopie', 'deuteranopia', 'deuteranopia'],
@@ -341,16 +316,10 @@
     ['tritanopia', 'tritanopía', 'Tritanopie', 'tritanopie', 'tritanopia', 'tritanopia'],
     ['Left-handed controls', 'Controles para zurdos', 'Linkshänder-Steuerung', 'Commandes pour gauchers', 'Controles para canhotos', 'Comandi per mancini'],
     ['Timing assistance (+50% round timers)', 'Ayuda de tiempo (+50 % en los temporizadores)', 'Zeithilfe (+50 % Rundenzeit)', 'Aide au temps (+50 % sur les chronos)', 'Ajuda de tempo (+50% nos cronômetros)', 'Aiuto sui tempi (+50% sui timer)'],
-    ['Timing assistance', 'Ayuda de tiempo', 'Zeithilfe', 'Aide au temps', 'Ajuda de tempo', 'Aiuto sui tempi'],
     ['Replay tutorials', 'Repetir tutoriales', 'Tutorials wiederholen', 'Revoir les tutoriels', 'Repetir tutoriais', 'Ripeti i tutorial'],
     ['Reset', 'Restablecer', 'Zurücksetzen', 'Réinitialiser', 'Redefinir', 'Ripristina'],
     ['Controls', 'Controles', 'Steuerung', 'Commandes', 'Controles', 'Comandi'],
     ['Keyboard: {move} or Tab move focus · {choose} select · {back} pause/cancel · {pause} pause · {hint} hint · {reshuffle} reshuffle · {undo} undo · {camera} camera. Gamepad: d-pad/stick move · A select · B cancel · Start pause · Y hint · X undo.', 'Teclado: {move} o Tab mueven el foco · {choose} elige · {back} pausa/cancela · {pause} pausa · {hint} pista · {reshuffle} rebaraja · {undo} deshace · {camera} cámara. Mando: cruceta/palanca mueven · A elige · B cancela · Start pausa · Y pista · X deshace.', 'Tastatur: {move} oder Tab bewegen den Fokus · {choose} wählen · {back} Pause/Abbrechen · {pause} Pause · {hint} Tipp · {reshuffle} neu mischen · {undo} rückgängig · {camera} Kamera. Gamepad: Steuerkreuz/Stick bewegen · A wählen · B abbrechen · Start Pause · Y Tipp · X rückgängig.', 'Clavier : {move} ou Tab déplacent le focus · {choose} choisit · {back} pause/annuler · {pause} pause · {hint} indice · {reshuffle} remélanger · {undo} annuler · {camera} caméra. Manette : croix/stick déplacent · A choisit · B annule · Start pause · Y indice · X annule.', 'Teclado: {move} ou Tab movem o foco · {choose} escolhe · {back} pausa/cancela · {pause} pausa · {hint} dica · {reshuffle} embaralha · {undo} desfaz · {camera} câmera. Controle: direcional/analógico movem · A escolhe · B cancela · Start pausa · Y dica · X desfaz.', 'Tastiera: {move} o Tab spostano il focus · {choose} seleziona · {back} pausa/annulla · {pause} pausa · {hint} suggerimento · {reshuffle} rimescola · {undo} annulla · {camera} visuale. Gamepad: croce/levetta spostano · A seleziona · B annulla · Start pausa · Y suggerimento · X annulla.'],
-    ['Gamepad: {action}', 'Mando: {action}', 'Gamepad: {action}', 'Manette : {action}', 'Controle: {action}', 'Gamepad: {action}'],
-    ['confirm', 'confirmar', 'bestätigen', 'confirmer', 'confirmar', 'conferma'],
-    ['cancel', 'cancelar', 'abbrechen', 'annuler', 'cancelar', 'annulla'],
-    ['pause', 'pausa', 'Pause', 'pause', 'pausa', 'pausa'],
-    ['hint', 'pista', 'Tipp', 'indice', 'dica', 'suggerimento'],
     ['Data', 'Datos', 'Daten', 'Données', 'Dados', 'Dati'],
     ['Erase all local progress and settings', 'Borrar todo el progreso y la configuración locales', 'Gesamten lokalen Fortschritt und alle Einstellungen löschen', 'Effacer toute la progression et les réglages locaux', 'Apagar todo o progresso e as configurações locais', 'Cancella tutti i progressi e le impostazioni locali'],
     ['Erase', 'Borrar', 'Löschen', 'Effacer', 'Apagar', 'Cancella'],
@@ -398,7 +367,6 @@
     ['hint shown', 'pista mostrada', 'Tipp angezeigt', 'indice affiché', 'dica exibida', 'suggerimento mostrato'],
     ['tiles reshuffled', 'fichas rebarajadas', 'Steine neu gemischt', 'tuiles remélangées', 'peças embaralhadas', 'tessere rimescolate'],
     ['move undone', 'movimiento deshecho', 'Zug rückgängig', 'coup annulé', 'jogada desfeita', 'mossa annullata'],
-    ['round complete', 'ronda completada', 'Runde geschafft', 'manche terminée', 'rodada concluída', 'round completato'],
     ['board cleared', 'tablero despejado', 'Brett geräumt', 'plateau vidé', 'tabuleiro limpo', 'tabellone svuotato'],
     ['stage complete', 'etapa completada', 'Etappe geschafft', 'étape terminée', 'etapa concluída', 'tappa completata'],
     ['round over', 'ronda terminada', 'Runde vorbei', 'manche finie', 'rodada encerrada', 'round finito'],
@@ -414,7 +382,16 @@
     ['panel opened', 'panel abierto', 'Leiste geöffnet', 'panneau ouvert', 'painel aberto', 'pannello aperto'],
     ['panel closed', 'panel cerrado', 'Leiste geschlossen', 'panneau fermé', 'painel fechado', 'pannello chiuso'],
     ['settings saved', 'configuración guardada', 'Einstellungen gespeichert', 'réglages enregistrés', 'configurações salvas', 'impostazioni salvate'],
-    ['achievement unlocked', 'logro desbloqueado', 'Erfolg freigeschaltet', 'succès débloqué', 'conquista desbloqueada', 'obiettivo sbloccato']
+    ['achievement unlocked', 'logro desbloqueado', 'Erfolg freigeschaltet', 'succès débloqué', 'conquista desbloqueada', 'obiettivo sbloccato'],
+    // ---- engine port
+    ['Volumes, graphics quality, language, larger text, high contrast and reduced motion are in the StarHermit Options.', 'Los volúmenes, la calidad gráfica, el idioma, el texto grande, el alto contraste y el movimiento reducido están en las Opciones de StarHermit.', 'Lautstärken, Grafikqualität, Sprache, größere Schrift, hoher Kontrast und reduzierte Bewegung findest du in den StarHermit-Optionen.', 'Les volumes, la qualité graphique, la langue, le texte agrandi, le contraste élevé et les animations réduites se trouvent dans les Options StarHermit.', 'Volumes, qualidade gráfica, idioma, texto maior, alto contraste e movimento reduzido ficam nas Opções do StarHermit.', 'Volumi, qualità grafica, lingua, testo più grande, contrasto elevato e movimento ridotto si trovano nelle Opzioni di StarHermit.'],
+    ['Open Options', 'Abrir opciones', 'Optionen öffnen', 'Ouvrir les options', 'Abrir opções', 'Apri opzioni'],
+    ['Change controls', 'Cambiar controles', 'Steuerung ändern', 'Modifier les commandes', 'Alterar controles', 'Modifica comandi'],
+    ['Cancel', 'Cancelar', 'Abbrechen', 'Annuler', 'Cancelar', 'Annulla'],
+    ['Lesson', 'Lección', 'Lektion', 'Leçon', 'Lição', 'Lezione'],
+    ['Hint ({key})', 'Pista ({key})', 'Tipp ({key})', 'Indice ({key})', 'Dica ({key})', 'Suggerimento ({key})'],
+    ['Reshuffle ({key})', 'Rebarajar ({key})', 'Neu mischen ({key})', 'Remélanger ({key})', 'Embaralhar ({key})', 'Rimescola ({key})'],
+    ['Undo ({key})', 'Deshacer ({key})', 'Rückgängig ({key})', 'Annuler ({key})', 'Desfazer ({key})', 'Annulla ({key})'],
   ];
 
   var COLS = ['es-419', 'de-DE', 'fr-FR', 'pt-BR', 'it-IT'];
@@ -428,7 +405,6 @@
   // es-ES: Spain Spanish wording.
   T['es-ES'] = {
     'Settings': 'Ajustes',
-    'The 2D board is active. You can re-enable the 3D observatory in Settings → Graphics.': 'El tablero 2D está activo. Puedes volver a activar el observatorio 3D en Ajustes → Gráficos.',
     'countdown': 'cuenta atrás',
     'Could not set up today’s daily (clock problem). Using this device’s clock — try again.': 'No se ha podido preparar el diario de hoy (problema de hora). Se usa la hora de este dispositivo: inténtalo de nuevo.',
     'All local data erased': 'Se han borrado todos los datos locales'
@@ -443,4 +419,4 @@
   };
 
   root.NM_STRINGS = T;
-})(typeof self !== 'undefined' ? self : this);
+})(globalThis);

@@ -1,7 +1,8 @@
 // Localization access for the game modules. The tables and the runtime live
-// in js/i18n/strings.js + js/i18n/i18n.js (classic scripts loaded before js/app/main.js,
-// global NMI18N); outside the browser (Node tests) English keys come back
-// unchanged.
+// in js/i18n/strings.js + js/i18n/i18n.js (classic scripts that native/i18n.ts
+// loads first, global NMI18N); outside the runtime (node tests, without the
+// tables) English keys come back unchanged, so rules and replays stay
+// language-independent.
 
 /** Translate an English source string; {name} placeholders are filled from vars. */
 export function T(key, vars) {
@@ -13,12 +14,7 @@ export function T(key, vars) {
 /** Marks an English key for a later T() (content tables). */
 export const N = (key) => key;
 
-/** The game's current locale (navigator language outside the runtime). */
+/** The game's current locale (en-US outside the runtime). */
 export function lang() {
-  return globalThis.NMI18N?.lang ?? (typeof navigator !== 'undefined' ? navigator.language : 'en-US');
-}
-
-/** Run cb whenever the player changes the language (Settings → Language). */
-export function onLanguage(cb) {
-  if (typeof document !== 'undefined') document.addEventListener('nm-language', () => cb());
+  return globalThis.NMI18N?.lang ?? 'en-US';
 }
