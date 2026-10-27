@@ -4,28 +4,35 @@ A calm observatory-desk puzzle: remove pairs of exposed numbered tiles whose
 values satisfy the round's rule (sum target, matching twins, or exact
 difference), uncovering deeper tiles as you play.
 
+A StarHermit engine script game (engine 1.19.1, `engine.minor=20`): one package
+played natively by the StarHermit client and in browsers by the engine's web
+runtime. See `spec.md` for the full design.
+
 ## Run
 
-- **Any static server**: `npx serve .` or `python3 -m http.server`, then open `index.html`.
-- **With the authoritative backend** (server time + verified leaderboards):
-  `node server.js 8080` and open http://localhost:8080 — no dependencies required.
+```
+export STARHERMIT=~/sh/runtime/1.19.1/starhermit-1.19.1-linux-x86_64/starhermit
+$STARHERMIT .                     # play natively
+npm run package                   # after every change: writes index.html + starhermit-files.json
+node server.js 8080               # serve the folder for the web runtime
+```
 
 ## Test
 
 ```
-node tests/run-tests.mjs          # rules, replay, fuzz, content validation
-npm --prefix tests install        # once: puppeteer-core for the e2e suite
-node server.js 8123 &             # any port; browser suite needs a live host
-node tests/browser-test.mjs       # headless-Chrome end-to-end
+npm test                          # rules, store, localization, then native checks and play scripts
+npm run test:browser              # the packaged web build in Chrome (desktop, phone, landscape)
+npm run plays                     # regenerate tests/native/*.play from the solver
+npm run css                       # tools/ui-style.css → assets/ui-style.json
 ```
 
 ## Layout
 
+- `native/` — the engine client (TypeScript on the host API): flow, screens,
+  the 3D desk, audio, platform, localization, styles.
 - `js/rules/` — pure deterministic rules engine, seeded RNG, content
-  generator + validators, replay envelopes. Runs identically in Node and the
-  browser.
-- `js/app/` — DOM UI shell, Three.js renderer, WebAudio engine, persistence.
-- `server.js` — StarHermit authoritative script (static host, `/api/v1/time`,
-  replay-validated score submission).
-- `starhermit.txt` — distribution manifest (`name`, `launch`, `server`).
-- `vendor/three.module.js` — pinned Three.js r160.
+  generator + validators, replay envelopes (shared unchanged with node tests).
+- `js/store.js` — progress and its merge, the game's options, the device store.
+- `js/i18n/` — translation tables for nine locales.
+- `score-script.js` — StarHermit platform script (`server=`) posting scores.
+- `server.js` — local static host for development.

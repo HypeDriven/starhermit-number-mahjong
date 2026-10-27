@@ -767,7 +767,10 @@ function board2d(L: Layout, st: State, top: number): void {
         if (isTop || free) draw.text(String(t.value), r.x + r.width / 2, y + r.height / 2 - (big ? 15 : 12) * k, { size: (big ? 30.4 : 24) * k, weight: "700", align: "center", color: ink, font: "serif", ...(free ? {} : { opacity: 0.28 }) } as draw.TextOptions);
         else draw.text("·", r.x + r.width / 2, y + r.height / 2 - 12 * k, { size: 24 * k, weight: "700", align: "center", color: ink + "47" });
         if (sel) draw.strokeRoundRect(r.x - 4 * k, y - 4 * k, r.width + 8 * k, r.height + 8 * k, 10, token("accent"), 4);
-        else if (hinted) draw.strokeRoundRect(r.x - 4 * k, y - 4 * k, r.width + 8 * k, r.height + 8 * k, 10, token("accent"), 4);
+        else if (hinted) { // the old dashed outline: a thin double ring (draw has no dashes)
+          draw.strokeRoundRect(r.x - 4 * k, y - 4 * k, r.width + 8 * k, r.height + 8 * k, 10, token("accent"), 2);
+          draw.strokeRoundRect(r.x - 8 * k, y - 8 * k, r.width + 16 * k, r.height + 16 * k, 12, token("accent") + "80", 1.5);
+        }
       },
     });
     if (res.activated && !fresh(0)) later(() => { chooseTile(id); app.focusTileId = id; });
