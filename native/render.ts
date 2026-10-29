@@ -11,8 +11,8 @@
 // the dust motes in the lamp light and the camera framing (default / top /
 // low board view). Rendering reads rules snapshots and never writes them.
 //
-// From three.js r160: light intensities are ÷ π (the engine's r185
-// convention); r160 applied each material's envMapIntensity to
+// From three.js r160 (engine.minor 28): light intensities and the fitted
+// shadow box as render3d.js set them; r160 applied each material's envMapIntensity to
 // scene.environment, so each lit material takes the room environment as its
 // own envMap with its old intensity; the post chain (GTAO, UnrealBloom at
 // threshold 1.3, the GradeShader in linear light before the output, FXAA /
@@ -24,7 +24,7 @@
 import {
   ACESFilmicToneMapping, AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, CylinderGeometry,
   DirectionalLight, DoubleSide, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial,
-  MeshStandardMaterial, NoColorSpace, PerspectiveCamera, PlaneGeometry, PMREMGenerator, PointLight, Points, PointsMaterial, Raycaster,
+  MeshStandardMaterial, NoColorSpace, OrthographicCamera, PerspectiveCamera, PlaneGeometry, PMREMGenerator, PointLight, Points, PointsMaterial, Raycaster,
   RepeatWrapping, RingGeometry, RoomEnvironment, RoundedBoxGeometry, SRGBColorSpace, SphereGeometry, TorusGeometry, Vector2, Vector3,
   renderer, scene, type Material, type Texture,
 } from "starhermit:scene";
@@ -98,15 +98,15 @@ let envTex: Texture | null = null;
 let active = false;
 
 // lights: one dominant warm key, soft hemisphere fill, lamp glow
-const keyLight = new DirectionalLight(0xffe6c0, 2.3 / PI);
+const keyLight = new DirectionalLight(0xffe6c0, 2.3);
 keyLight.position.set(5, 9, 4);
 keyLight.shadow.bias = -0.0006;
 keyLight.shadow.normalBias = 0.02;
 keyLight.shadow.radius = 3;
 scene.add(keyLight, keyLight.target);
-const hemi = new HemisphereLight(0x8fa3c7, 0x2a2018, 0.6 / PI);
+const hemi = new HemisphereLight(0x8fa3c7, 0x2a2018, 0.6);
 scene.add(hemi);
-const LAMP = 12 / PI;
+const LAMP = 12;
 const lamp = new PointLight(0xffc890, LAMP, 14, 1.8);
 lamp.position.set(-4.5, 3.2, -2.5);
 scene.add(lamp);
@@ -630,7 +630,7 @@ export function applyLook(next: Look): void {
     catch (e) { console.warn(`environment: ${e instanceof Error ? e.message : String(e)}`); }
   }
   scene.environment = null;
-  hemi.intensity = (next.reflections ? 0.45 : 0.6) / PI;
+  hemi.intensity = next.reflections ? 0.45 : 0.6;
   if (next.detailed && !propsBuilt) { buildProps(); propsBuilt = true; }
   propsGroup.visible = next.detailed;
   if (!prev || prev.budget.texture !== b.texture) { woodTex?.dispose(); feltTex?.dispose(); woodTex = feltTex = null; }
@@ -678,12 +678,13 @@ function tilePos(stack: number, level: number): { x: number; y: number; z: numbe
   };
 }
 
-/** Shadow camera fitted to the play area: the engine's orthographic shadow box reaches `distance` along the light. */
+/** Shadow camera fitted to the play area (half-extents in world units), as render3d.js fitted it. */
 function fitShadow(halfW: number, halfD: number): void {
   const r = Math.hypot(halfW, halfD) + 0.9;
-  keyLight.shadow.distance = Math.max(14, r * 2 + 6);
-  keyLight.shadow.camera.near = 2;
-  keyLight.shadow.camera.far = 26;
+  const cam = keyLight.shadow.camera as OrthographicCamera;
+  cam.left = -r; cam.right = r; cam.top = r; cam.bottom = -r;
+  cam.near = 2; cam.far = 26;
+  cam.updateProjectionMatrix();
 }
 
 export function buildBoard(state: State): void {

@@ -15,7 +15,7 @@ and keep lifting until the felt is bare.
 | Genre | Single-player number-pair tile solitaire (mahjong-solitaire exposure, arithmetic matching) |
 | Players | 1, with asynchronous score comparison on shared seeds |
 | Session | 60-90 s for a lesson or an early journey stage; 3-5 min for a daily or a capstone |
-| Platforms | StarHermit engine 1.24.0 script game (`engine.minor=20`): natively in the StarHermit client and in browsers through the engine's web runtime; portrait and landscape; keyboard, pointer, touch, gamepad |
+| Platforms | StarHermit engine 1.26.1 script game (`engine.minor=28`): natively in the StarHermit client and in browsers through the engine's web runtime; portrait and landscape; keyboard, pointer, touch, gamepad |
 | Rendering | `starhermit:scene` (three.js r185-like) for the desk and tiles, `starhermit:ui` for every screen and the HUD, `starhermit:canvas` for the procedural textures |
 | Networking | Offline-first. Signed in (the runtime owns sign-in and tokens), the game uses the player, the cloud save, per-player settings, the platform clock (`serverNow`) for the Daily, the high-score leaderboard (read, and score posts through `score-script.js`) and invite links; guests make no platform request |
 
@@ -291,7 +291,7 @@ outside the play area, dimmer and out of focus, and are dropped entirely at `pla
 (the Low preset).
 
 **Graphics.** A warm key light with PCF shadows whose box is fitted to the current board, a hemisphere
-fill and an oil-lamp point light (intensities ÷ π from three.js r160, the engine's r185 convention), ACES
+fill and an oil-lamp point light (three.js r160 intensities), ACES
 filmic tone mapping. On detailed looks the tiles are rounded two-ply slabs (ivory face over a jade backing
 layer) with clear coat and engraved numerals (a bump map from the same canvas), the desk has procedural
 wood grain, the felt a fibre texture, and the props gain an oil lamp with a flickering flame, telescope
@@ -439,7 +439,7 @@ without ending a round.
 
 `starhermit.txt` declares `name`, `description`, `owner`, `server=score-script.js`, `version`, `cover`,
 `launch=index.html` (the web loader `npm run package` writes), `engine.api=1`, `engine.entry=native/main.ts`,
-`engine.version=1.24.0`, `engine.minor=20`, `engine.capabilities=platform,storage,clipboard`, and a
+`engine.version=1.26.1`, `engine.minor=28`, `engine.capabilities=platform,storage,clipboard`, and a
 `control.<action>` and `engine.gamepad.<action>` default for every action.
 
 - *Player* — the runtime signs players in (`player()`); the title offers **Sign in with StarHermit**
