@@ -15,7 +15,7 @@ and keep lifting until the felt is bare.
 | Genre | Single-player number-pair tile solitaire (mahjong-solitaire exposure, arithmetic matching) |
 | Players | 1, with asynchronous score comparison on shared seeds |
 | Session | 60-90 s for a lesson or an early journey stage; 3-5 min for a daily or a capstone |
-| Platforms | StarHermit engine 1.22.0 script game (`engine.minor=20`): natively in the StarHermit client and in browsers through the engine's web runtime; portrait and landscape; keyboard, pointer, touch, gamepad |
+| Platforms | StarHermit engine 1.23.0 script game (`engine.minor=20`): natively in the StarHermit client and in browsers through the engine's web runtime; portrait and landscape; keyboard, pointer, touch, gamepad |
 | Rendering | `starhermit:scene` (three.js r185-like) for the desk and tiles, `starhermit:ui` for every screen and the HUD, `starhermit:canvas` for the procedural textures |
 | Networking | Offline-first. Signed in (the runtime owns sign-in and tokens), the game uses the player, the cloud save, per-player settings, the platform clock (`serverNow`) for the Daily, the high-score leaderboard (read, and score posts through `score-script.js`) and invite links; guests make no platform request |
 
@@ -439,7 +439,7 @@ without ending a round.
 
 `starhermit.txt` declares `name`, `description`, `owner`, `server=score-script.js`, `version`, `cover`,
 `launch=index.html` (the web loader `npm run package` writes), `engine.api=1`, `engine.entry=native/main.ts`,
-`engine.version=1.22.0`, `engine.minor=20`, `engine.capabilities=platform,storage,clipboard`, and a
+`engine.version=1.23.0`, `engine.minor=20`, `engine.capabilities=platform,storage,clipboard`, and a
 `control.<action>` and `engine.gamepad.<action>` default for every action.
 
 - *Player* — the runtime signs players in (`player()`); the title offers **Sign in with StarHermit**
