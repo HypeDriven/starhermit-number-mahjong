@@ -613,12 +613,14 @@ export function applyLook(next: Look): void {
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
   };
   // high threshold: only emissive highlights (selection, hints, sparks, the lamp flame) bloom
-  renderer.bloom = next.bloom ? { strength: 0.5, radius: 0.4, threshold: 1.3, resolution: b.bloomRes } : null;
+  // The page's three r160 UnrealBloomPass strength 0.5 squared: minor 29 bloom follows r185 (≈2.9× the light).
+  renderer.bloom = next.bloom ? { strength: 0.25, radius: 0.4, threshold: 1.3, resolution: b.bloomRes } : null;
   // render3d.js GradeShader (linear, before the output): S-curve 0.18, saturation 1.08, cool shadows / warm highlights
   // between 0.15 and 0.75 luma, the 0.26 vignette from 0.32 to 0.82 (vertical axis 0.9).
   renderer.grade = next.grade ? {
     space: "linear", contrast: 0.18, saturation: 1.08, shadows: [0.95, 0.98, 1.06], highlights: [1.04, 1.0, 0.95], split: [0.15, 0.75],
     vignette: { amount: 0.26, inner: 0.32, outer: 0.82, scale: [1, 0.9] },
+    overRange: "keep", // minor 29: mix(c, s + max(c - 1, 0), amount) as the page's grade
   } : null;
   renderer.antialias = next.antialias;
   const on = next.shadows > 0;
