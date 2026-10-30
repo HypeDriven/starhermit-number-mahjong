@@ -628,7 +628,7 @@ export function applyLook(next: Look): void {
   keyLight.castShadow = on;
   if (on) keyLight.shadow.mapSize = next.shadows;
   if (next.reflections && !envTex) {
-    try { envTex = new PMREMGenerator(renderer).fromScene(new RoomEnvironment(renderer), 0.04).texture; }
+    try { const pageRoom = new RoomEnvironment(renderer); pageRoom.position.y = 0; /* the page's three r160 (pre-r183) builds the room at the origin */ envTex = new PMREMGenerator(renderer).fromScene(pageRoom, 0.04).texture; }
     catch (e) { console.warn(`environment: ${e instanceof Error ? e.message : String(e)}`); }
   }
   scene.environment = null;
