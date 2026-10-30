@@ -613,8 +613,8 @@ export function applyLook(next: Look): void {
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
   };
   // high threshold: only emissive highlights (selection, hints, sparks, the lamp flame) bloom
-  // The page's three r160 UnrealBloomPass strength 0.5 squared: minor 29 bloom follows r185 (≈2.9× the light).
-  renderer.bloom = next.bloom ? { strength: 0.25, radius: 0.4, threshold: 1.3, resolution: b.bloomRes } : null;
+  // render3d.js: three r160 UnrealBloomPass(0.5, 0.4, 1.3), drawn by the r160 bloom model at the page's strength.
+  renderer.bloom = next.bloom ? { model: "r160", strength: 0.5, radius: 0.4, threshold: 1.3, resolution: b.bloomRes } : null;
   // render3d.js GradeShader (linear, before the output): S-curve 0.18, saturation 1.08, cool shadows / warm highlights
   // between 0.15 and 0.75 luma, the 0.26 vignette from 0.32 to 0.82 (vertical axis 0.9).
   renderer.grade = next.grade ? {
