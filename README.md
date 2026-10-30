@@ -4,14 +4,14 @@ A calm observatory-desk puzzle: remove pairs of exposed numbered tiles whose
 values satisfy the round's rule (sum target, matching twins, or exact
 difference), uncovering deeper tiles as you play.
 
-A StarHermit engine script game (engine 1.28.0, `engine.minor=30`): one package
+A StarHermit engine script game (engine 1.29.0, `engine.minor=31`): one package
 played natively by the StarHermit client and in browsers by the engine's web
 runtime. See `spec.md` for the full design.
 
 ## Run
 
 ```
-export STARHERMIT=~/sh/runtime/1.28.0/starhermit-1.28.0-linux-x86_64/starhermit
+export STARHERMIT=~/sh/runtime/1.29.0/starhermit-1.29.0-linux-x86_64/starhermit
 $STARHERMIT .                     # play natively
 npm run package                   # after every change: writes index.html + starhermit-files.json
 node server.js 8080               # serve the folder for the web runtime
