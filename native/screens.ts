@@ -122,21 +122,9 @@ function menuStack(id: string, list: Btn[], w: number): void {
 }
 /** Buttons at their own widths in rows that wrap at `width` (CSS flex-wrap). */
 function flow(label: string, list: Btn[], width: number, gap = 10): void {
-  const rows: number[] = [];
-  let used = 0, n = 0;
-  for (const b of list) {
-    const bw = Math.min(width, btnW(b));
-    if (n && used + gap + bw > width) { rows.push(n); used = 0; n = 0; }
-    used += (n ? gap : 0) + bw;
-    n++;
-  }
-  if (n) rows.push(n);
-  let k = 0;
-  ui.column(label, () => {
-    rows.forEach((cnt, ri) => ui.row(`${label}-r${ri}`, () => {
-      for (let i = 0; i < cnt; i++, k++) { const b = list[k]!; button(b, btnW(b) > width ? width : null); }
-    }, { spacing: gap, align: "center" }));
-  }, { spacing: gap, width });
+  ui.row(label, () => {
+    for (const b of list) button(b, btnW(b) > width ? width : null);
+  }, { wrap: true, width, gap, align: "center" });
 }
 /** Text up to `width` wide: one label when it fits, else a paragraph. */
 function para(text: string, width: number, cls = "p", id?: string): void {

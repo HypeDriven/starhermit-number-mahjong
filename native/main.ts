@@ -20,7 +20,7 @@
 // exactly; the countdown (650 ms a number, 450 ms "Observe") and the 750 ms
 // resolve settle count the same steps.
 import "./i18n.ts";
-import { clipboard, frame, onFixedUpdate, onPreferencesChange, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
+import { clipboard, frame, levelSettings, onFixedUpdate, onPreferencesChange, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
 import { bindingLabel, onAction, onPointerButton, onPointerMove, onTouch, pointer, setCursor } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import type { ImageBitmap } from "starhermit:canvas";
@@ -891,10 +891,10 @@ function pointerInput(): void {
 let lookKey = "";
 function applyLook(): void {
   const f = frame();
-  const k = `${f.quality}:${f.levelIndex}`;
+  const k = f.level;
   if (k === lookKey) return;
   lookKey = k;
-  render.applyLook(lookFor(f.quality, f.levelIndex));
+  render.applyLook(lookFor(levelSettings(f.level)));
 }
 function refreshAvatar(): void {
   app.avatar = null;

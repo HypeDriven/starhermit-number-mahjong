@@ -305,14 +305,13 @@ vignette 0.26) and `renderer.antialias` (FXAA, SMAA or MSAA). Ambient motion dri
 the lamp light and flickers the flame; it stops under reduced motion.
 
 **Graphics levels** (`native/quality.ts`). The runtime's Options › Graphics chooses the level (Auto or one of
-ten, `frame().quality` / `frame().levelIndex`); the game keeps the browser build's four presets per tier and
-their budgets (each tuned to hold 60 FPS on the weakest GPU Auto gave it). Render scale, the pixel-ratio cap,
+ten, `frame().level`). The engine's level table (`levelSettings()`) sets shadows and their map size, AO, bloom,
+grade and anti-aliasing; the game keeps the browser build's art budgets per tier (`frame().quality`). Render scale, the pixel-ratio cap,
 adaptive resolution, the frame-rate limit and the FPS readout are the runtime's; the old per-effect overrides
 are not offered. Tiles, layout, hit areas and rules are identical on every level.
 
 | Budget | Low | Balanced | High | Ultra |
 |---|---|---|---|---|
-| Shadows / AO / bloom / grade / AA | off / off / off / off / off | 1024² / off / on / on / FXAA | 2048² / on / on / on / SMAA | 4096² / high / on / on / MSAA |
 | Reflections, detail (props, rounded tiles, textures), ambient motion | off | on | on | on |
 | Tile shading | Lambert | Standard | clear-coated Physical | as High |
 | Tile-face texture (height 1.25×; plain faces 128 px) | 128 px | 256 px | 256 px | 512 px |
@@ -320,9 +319,8 @@ are not offered. Tiles, layout, hit areas and rules are identical on every level
 | Desk-wood texture (felt ½) | 256 px | 256 px | 512 px | 1024 px |
 | Spark pool (Low none; Balanced 30 %) | — | 140 | 200 | 300 |
 | Dust motes | 40 | 60 | 90 | 150 |
-| Bloom / GTAO resolution | ½ | ½ | ½ | full |
 
-Spark and mote counts grow within a tier with the level above its first (≤ 2×, at most 600 / 300).
+Spark and mote counts follow the level's particle budget against the tier's anchor level (≤ 2×, at most 600 / 300).
 
 
 **Visual assets the design calls for**
@@ -345,8 +343,7 @@ tone under an 0.07 Hz LFO; music is a generative pentatonic pluck line (root A3,
 that fires roughly every 0.9-2.3 s and goes silent while the window is hidden or the round paused.
 
 **Playback** (`native/audio.ts`). `play(event)` plays the event's Opus clip on the runtime's mixer: menu
-sounds on the `interface` bus, the rest on `effects`. The clips load once the mixer runs (natively at once,
-in a browser after the first press), one at a time; a clip still loading is silent (the browser build's
+sounds on the `interface` bus, the rest on `effects`. Every clip loads at once on start; a clip still loading is silent (the browser build's
 procedural fallback voices are not ported: a live synthesis graph makes clip loads fail on the web
 runtime). The room tone and the plucks are rendered into clips once (a slice a frame) and play on the
 `music` bus (the runtime has no ambience bus: the room tone's gain folds in the old 0.4 ambience against

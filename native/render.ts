@@ -608,13 +608,14 @@ export function applyLook(next: Look): void {
   if (prev && JSON.stringify(prev) === JSON.stringify(next)) return;
   look = next;
   const b = next.budget;
-  renderer.ao = next.ao === "off" ? null : {
-    blendIntensity: 0.75, radius: 0.45, distanceExponent: 1.4, thickness: 1.0, scale: 1.0, samples: next.ao === "high" ? 16 : 8, resolution: b.aoRes,
-    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
+  const ao = next.ao, full = !!ao && ao.resolution >= 1; // the engine's AO: resolution 1 is its "high"
+  renderer.ao = ao && {
+    blendIntensity: 0.75, radius: 0.45, distanceExponent: 1.4, thickness: 1.0, scale: 1.0, samples: ao.samples, resolution: ao.resolution,
+    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: full ? 6 : 4, rings: 2, samples: ao.denoiseSamples, radiusExponent: 2 },
   };
   // high threshold: only emissive highlights (selection, hints, sparks, the lamp flame) bloom
   // render3d.js: three r160 UnrealBloomPass(0.5, 0.4, 1.3), drawn by the r160 bloom model at the page's strength.
-  renderer.bloom = next.bloom ? { model: "r160", strength: 0.5, radius: 0.4, threshold: 1.3, resolution: b.bloomRes } : null;
+  renderer.bloom = next.bloom === null ? null : { model: "r160", strength: 0.5, radius: 0.4, threshold: 1.3, resolution: next.bloom };
   // render3d.js GradeShader (linear, before the output): S-curve 0.18, saturation 1.08, cool shadows / warm highlights
   // between 0.15 and 0.75 luma, the 0.26 vignette from 0.32 to 0.82 (vertical axis 0.9).
   renderer.grade = next.grade ? {
@@ -626,7 +627,7 @@ export function applyLook(next: Look): void {
   const on = next.shadows > 0;
   renderer.shadowMap.enabled = on;
   keyLight.castShadow = on;
-  if (on) keyLight.shadow.mapSize = next.shadows;
+  if (on) keyLight.shadow.mapSize = next.shadows; // the level's size: at this minor the engine keeps what the game sets
   if (next.reflections && !envTex) {
     try { const pageRoom = new RoomEnvironment(renderer); pageRoom.position.y = 0; /* the page's three r160 (pre-r183) builds the room at the origin */ envTex = new PMREMGenerator(renderer).fromScene(pageRoom, 0.04).texture; }
     catch (e) { console.warn(`environment: ${e instanceof Error ? e.message : String(e)}`); }

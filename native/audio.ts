@@ -16,9 +16,9 @@
 // the "interface" bus, the rest on "effects". The procedural voices the
 // browser build used while a sample decoded are not ported (a live synthesis
 // graph makes clip loads fail on the engine's web runtime): a clip still
-// loading is silent. Clips load once the mixer runs (natively at once, in a
-// browser after the first press), one at a time. Every event returns its
-// sound-caption key (the game's Sound captions option).
+// loading is silent. Every clip loads at once from onStart; the stems wait for
+// the mixer (natively at once, in a browser after the first press). Every event
+// returns its sound-caption key (the game's Sound captions option).
 import { frame } from "starhermit:engine";
 import { context, createClip, loadClip, play as playClip, type AudioClip, type Sound } from "starhermit:audio";
 import { Rng } from "./game.ts";
@@ -46,13 +46,14 @@ const CAPTIONS: Record<string, string> = {
 };
 
 const clips = new Map<string, AudioClip>();
-const queue: string[] = [];
-let loading = false;
-let wantClips = false;
 let suspended = false;
 
-/** Asks for the clips; they load once the mixer runs (see update). */
-export function loadSfx(): void { wantClips = true; }
+/** Loads every clip at once (onStart); a cue whose clip is still loading is silent. */
+export function loadSfx(): void {
+  for (const n of new Set(Object.values(SAMPLE_FILES))) {
+    loadClip(`sfx/${n}.opus`).then((c) => { clips.set(n, c); }, (e: unknown) => { console.warn(`sfx ${n}: ${String(e)}`); });
+  }
+}
 /** Pause and a hidden window: the stems quiet (audio.js suspend / resume). */
 export function setSuspended(on: boolean): void { suspended = on; }
 
@@ -63,7 +64,7 @@ export function play(event: string, chain = 0): string {
   const clip = file ? clips.get(file) : undefined;
   if (clip && !suspended) {
     try { playClip(clip, { bus: INTERFACE.has(event) ? "interface" : "effects" }); }
-    catch { clips.delete(file!); if (!queue.includes(file!)) queue.push(file!); } // a clip the mixer lost: load it again
+    catch { /* the mixer is full this frame: skip it */ }
   }
   return CAPTIONS[event] ?? "";
 }
@@ -123,22 +124,9 @@ function pluck(freq: number, gain: number, fifth: boolean): void {
   try { playClip(clip, { bus: "music", gain, pitch: fifth ? 1.5 : 1 }); } catch { /* the mixer restarted */ }
 }
 
-/** Each frame: the clips once the mixer runs (one at a time), then the stems, the swell and the plucks. */
+/** Each frame, once the mixer runs: the stems, the swell and the plucks. */
 export function update(): void {
   if (context.state !== "running") return;
-  if (wantClips) {
-    wantClips = false;
-    for (const n of new Set(Object.values(SAMPLE_FILES))) if (!queue.includes(n)) queue.push(n);
-  }
-  if (!loading && queue.length) {
-    const name = queue.shift()!;
-    if (!clips.has(name)) {
-      loading = true;
-      loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); loading = false; }, (e: unknown) => { console.warn(`sfx ${name}: ${String(e)}`); loading = false; });
-    }
-    return;
-  }
-  if (loading) return;
   if (!ambClip) {
     if (!renderAmbience(8000)) return;
     try { ambClip = createClip([amb], RATE); } catch (e) { console.warn(`audio: ${String(e)}`); ambPos = 0; }

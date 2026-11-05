@@ -1,0 +1,16 @@
+# Tier bench: the Daily's desk in play (fixed seed for the day), a hint and a reshuffle, the lamp and motes running.
+until 300 Number Mahjong
+frames 30
+click Daily Challenge
+until 60 Next daily in
+frames 10
+click =Start round
+until 300 14 pairs left
+until 300 Observe
+frames 120
+measure start
+key KeyH 1
+frames 300
+key KeyR 1
+frames 300
+measure stop
