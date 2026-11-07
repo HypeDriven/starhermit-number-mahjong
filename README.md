@@ -33,6 +33,6 @@ npm run css                       # tools/ui-style.css → assets/ui-style.json
 - `js/rules/` — pure deterministic rules engine, seeded RNG, content
   generator + validators, replay envelopes (shared unchanged with node tests).
 - `js/store.js` — progress and its merge, the game's options, the device store.
-- `js/i18n/` — translation tables for nine locales.
+- `assets/strings.json` — translation tables for nine locales.
 - `score-script.js` — StarHermit platform script (`server=`) posting scores.
 - `server.js` — local static host for development.

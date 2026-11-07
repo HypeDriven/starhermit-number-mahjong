@@ -39,10 +39,11 @@ export function audit(tables, used) {
     if (!LOCALES.includes(loc)) problems.push(`unknown locale ${loc}`);
     for (const [k, v] of Object.entries(table)) {
       if (!usedSet.has(k)) { problems.push(`${loc} unused: ${k}`); continue; }
-      const want = (k.match(/\{\w+\}/g) || []).sort().join();
+      const src = tables['en-US']?.[k] ?? k; // short keys (over the engine's 256): the English text
+      const want = (src.match(/\{\w+\}/g) || []).sort().join();
       const got = (String(v).match(/\{\w+\}/g) || []).sort().join();
       if (want !== got) problems.push(`${loc} placeholders: ${k}`);
-      const tagsK = (k.match(/<\/?\w+/g) || []).sort().join();
+      const tagsK = (src.match(/<\/?\w+/g) || []).sort().join();
       const tagsV = (String(v).match(/<\/?\w+/g) || []).sort().join();
       if (tagsK !== tagsV) problems.push(`${loc} markup: ${k}`);
     }

@@ -1,6 +1,5 @@
-// Localization access for the game modules. The tables and the runtime live
-// in js/i18n/strings.js + js/i18n/i18n.js (classic scripts that native/i18n.ts
-// loads first, global NMI18N); outside the runtime (node tests, without the
+// Localization access for the game modules. The tables are the engine's strings
+// (native/i18n.ts sets the global NMI18N); outside the runtime (node tests, without the
 // tables) English keys come back unchanged, so rules and replays stay
 // language-independent.
 

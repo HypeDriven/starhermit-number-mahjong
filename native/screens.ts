@@ -16,7 +16,7 @@ import { pointer, requestRebind } from "starhermit:input";
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
 import { C, E, R, Store, type State } from "./game.ts";
-import { N, S, T } from "./i18n.ts";
+import { N, T } from "./i18n.ts";
 import * as platform from "./platform.ts";
 import * as render from "./render.ts";
 import { token } from "./style.ts";
@@ -30,11 +30,10 @@ import {
 // ------------------------------------------------------------------ layout and helpers
 interface Layout { lw: number; lh: number; sc: number; ox: number; oy: number; narrow: boolean; short: boolean }
 function layoutNow(): Layout {
-  const f = frame();
-  const sc = ui.preferences().scale;
-  const sa = f.safeArea;
-  const lw = Math.max(1, (f.width - sa.left - sa.right) / sc), lh = Math.max(1, (f.height - sa.top - sa.bottom) / sc);
-  return { lw, lh, sc, ox: sa.left, oy: sa.top, narrow: lw <= 720, short: lh <= 500 && lw > lh };
+  const v = ui.viewport!();
+  const sc = v.scale;
+  const lw = Math.max(1, v.width), lh = Math.max(1, v.height);
+  return { lw, lh, sc, ox: v.x * sc, oy: v.y * sc, narrow: lw <= 720, short: lh <= 500 && lw > lh };
 }
 const prefs = (): ui.UiPreferences => ui.preferences();
 const fresh = (n = 0): boolean => frame().frame - app.openedFrame <= n;
@@ -232,8 +231,8 @@ function titleScreen(w: number, L: Layout): void {
     { id: "btn-settings", cls: "menu-btn", text: T("Settings"), act: () => openSettings(false) },
     { id: "btn-help", cls: "menu-btn", text: T("Help & Rules"), act: () => openHelp(false) },
   ];
-  if (!platform.signedIn()) list.push({ id: "btn-signin", cls: "menu-btn", text: S("signIn"), note: S("signInSub"), act: signIn });
-  if (platform.inviteLink()) list.push({ id: "btn-invite", cls: "menu-btn", text: S("invite"), note: S("inviteSub"), act: copyInvite });
+  if (!platform.signedIn()) list.push({ id: "btn-signin", cls: "menu-btn", text: T("starhermit.signIn"), note: T("acct.signInSub"), act: signIn });
+  if (platform.inviteLink()) list.push({ id: "btn-invite", cls: "menu-btn", text: T("starhermit.invite"), note: T("acct.inviteSub"), act: copyInvite });
   menuStack("menu", list, w);
   const name = platform.signedIn() ? platform.displayName() : "";
   const status = (name ? T("Playing as {name}", { name }) + " · " : "") + (app.winStreak > 1 ? T("Win streak: {n}.", { n: app.winStreak }) + " " : "")
@@ -526,7 +525,7 @@ function helpScreen(w: number): void {
     ["▤ " + T("Exposure"), stripTags(T("Only the top tile of each stack can be played. In side-locked rounds, a tile is also locked while neighbours press on <em>both</em> its sides — one open side is enough."))],
     ["✦ " + T("Scoring"), T("Each pair scores 100. Removing pairs quickly adds up to 50 speed bonus. Unbroken chains of pairs (no hints, no misses) add up to 150 per pair. Clearing the board adds 500, plus a time bonus in timed rounds. Exploring never costs points.")],
     ["⚑ " + T("Stuck?"), T("If no legal pair exists and no reshuffles remain, the round ends. Hints (H) reveal one legal pair. Reshuffles (R) redeal the remaining tiles solvably. Practice and Journey allow undo (U).")],
-    ["⌨ " + T("Controls"), T("Pointer or touch: tap a tile, tap its partner. Keyboard: {move} move, {choose} selects, {back} cancels or pauses. Gamepad: d-pad moves, {confirm} confirms, {cancel} cancels, Start pauses. {hint} hints, {reshuffle} reshuffles, {undo} undoes, {camera} resets the camera.", {
+    ["⌨ " + T("Controls"), T("help.controls", {
       move: [k("left"), k("right"), k("up"), k("down")].join(" "), choose: k("choose"), back: k("back"), confirm: "A", cancel: "B",
       hint: k("hint"), reshuffle: k("reshuffle"), undo: k("undo"), camera: k("camera"),
     })],

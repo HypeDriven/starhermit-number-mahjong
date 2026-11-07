@@ -27,7 +27,7 @@ import type { ImageBitmap } from "starhermit:canvas";
 import { avatar, onSessionEnded, player, requestSignIn } from "starhermit:platform";
 import { C, E, R, type BoardEntry, type Board, type Command, type Content, type Replay, type RulesEvent, type Score, type State, type Theme } from "./game.ts";
 import * as audio from "./audio.ts";
-import { N, S, T } from "./i18n.ts";
+import { N, T } from "./i18n.ts";
 import * as platform from "./platform.ts";
 import { lookFor } from "./quality.ts";
 import * as render from "./render.ts";
@@ -633,8 +633,8 @@ export function goNext(): void { const n = nextStage(); if (n) { sfx("ui"); open
 export function leaderboardLine(): string | null {
   const r = app.lb;
   if (!r) return null;
-  if (r === "posting") return S("lbPosting");
-  return !r.posted ? S("lbNotPosted") : r.rank ? S("lbRank", { rank: r.rank }) : S("lbPosted");
+  if (r === "posting") return T("starhermit.leaderboardPosting");
+  return !r.posted ? T("starhermit.leaderboardNotPosted") : r.rank ? T("starhermit.leaderboardRank", { rank: r.rank }) : T("starhermit.leaderboardPosted");
 }
 
 // ------------------------------------------------------------------ lessons
@@ -739,7 +739,7 @@ export function copyInvite(): void {
   sfx("ui");
   const link = platform.inviteLink();
   if (!link) return;
-  try { clipboard.writeText(link); toast(S("copied")); } catch { toast(S("copyFailed"), true); }
+  try { clipboard.writeText(link); toast(T("starhermit.inviteCopied")); } catch { toast(T("starhermit.inviteFailed"), true); }
 }
 export function signIn(): void { sfx("ui"); void requestSignIn().catch(() => undefined); }
 export function resetTutorials(): void {
@@ -923,8 +923,8 @@ platform.onOptionsChange(() => {
   }
 });
 platform.onProgressMerged(() => { resumeCache = undefined; });
-platform.onPlayer((on) => { refreshAvatar(); if (!on) toast(S("signedOut")); });
-onSessionEnded(() => toast(S("signedOut"))); // keep playing locally
+platform.onPlayer((on) => { refreshAvatar(); if (!on) toast(T("starhermit.signedOut")); });
+onSessionEnded(() => toast(T("starhermit.signedOut"))); // keep playing locally
 let hidden = false;
 onSuspend(() => {
   hidden = true;

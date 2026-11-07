@@ -8,7 +8,7 @@
 // (seeded A-minor-pentatonic sine plucks, 1.6 s, every 0.9–2.3 s with a 72 %
 // chance, a fifth above 240 ms later 30 % of the time, silent while hidden).
 // The browser build ran the room tone and the plucks live; here they are
-// rendered into clips once (createClip, a slice a frame): the room tone loops
+// rendered offline at start (OfflineAudioContext, one context a clip): the room tone loops
 // on the music bus (the runtime has no ambience bus: its gain folds in the old
 // ambience slider's 0.4 against music's 0.5) and the swell is a fade each
 // frame; each pluck is a clip played by the seeded timer. The runtime's
@@ -20,7 +20,7 @@
 // the mixer (natively at once, in a browser after the first press). Every event
 // returns its sound-caption key (the game's Sound captions option).
 import { frame } from "starhermit:engine";
-import { context, createClip, loadClip, play as playClip, type AudioClip, type Sound } from "starhermit:audio";
+import { context, createClip, loadClip, OfflineAudioContext, play as playClip, type AudioClip, type Sound } from "starhermit:audio";
 import { Rng } from "./game.ts";
 
 const SAMPLE_FILES: Record<string, string> = {
@@ -53,6 +53,8 @@ export function loadSfx(): void {
   for (const n of new Set(Object.values(SAMPLE_FILES))) {
     loadClip(`sfx/${n}.opus`).then((c) => { clips.set(n, c); }, (e: unknown) => { console.warn(`sfx ${n}: ${String(e)}`); });
   }
+  renderAmbience().then((c) => { ambClip = c; }, (e: unknown) => console.warn(`audio: ${String(e)}`));
+  for (const f of PLUCK_FREQS) renderPluck(f).then((c) => { pluckClips.set(f, c); }, (e: unknown) => console.warn(`audio: ${String(e)}`));
 }
 /** Pause and a hidden window: the stems quiet (audio.js suspend / resume). */
 export function setSuspended(on: boolean): void { suspended = on; }
@@ -73,23 +75,20 @@ export function play(event: string, chain = 0): string {
 const RATE = 22050;
 const rng = Rng.makeStream("audio-default");
 
-// The room tone: a 2 s brown-noise loop through a one-pole 320 Hz lowpass, run twice so it joins without a click.
-const AMB_N = RATE * 2;
-const amb = new Float32Array(AMB_N);
-let ambPos = 0, ambY = 0, brown = 0;
-function renderAmbience(count: number): boolean {
-  const k = 1 - Math.exp((-2 * Math.PI * 320) / RATE);
-  const end = Math.min(2 * AMB_N, ambPos + count);
-  for (; ambPos < end; ambPos++) {
-    const i = ambPos % AMB_N;
-    if (ambPos < AMB_N) {
-      brown = (brown + 0.02 * (rng.next() * 2 - 1)) / 1.02;
-      amb[i] = brown * 3;
-    }
-    ambY += k * (amb[i]! - ambY);
-    if (ambPos >= AMB_N) amb[i] = ambY;
-  }
-  return ambPos >= 2 * AMB_N;
+// The room tone: a 2 s brown-noise loop lowpassed at 320 Hz (periodic once the filter settles, so it joins without a click).
+async function renderAmbience(): Promise<AudioClip> {
+  const settle = Math.round(0.25 * RATE);
+  const off = new OfflineAudioContext(1, settle + RATE * 2, RATE);
+  const noise = off.createNoise({ color: "brown", seed: 0x4e4d, seconds: 2 });
+  const lp = off.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 320;
+  const g = off.createGain();
+  g.gain.value = 0.8; // measured rms: +2 dB over the old brown noise and one-pole, unaided
+  noise.connect(lp).connect(g).connect(off.destination);
+  noise.start();
+  const r = await off.startRendering();
+  return createClip([r.getChannelData(0).slice(settle)], RATE);
 }
 
 // The plucks: audio.js _blip(freq, 1.6, sine, gain 1 here (the play gain sets 0.05 / 0.035), 20 ms attack, exponential fall).
@@ -97,17 +96,20 @@ const SCALE = [0, 3, 5, 7, 10];
 const ROOT = 220;
 const PLUCK_DUR = 1.6;
 const pluckClips = new Map<number, AudioClip>();
-function renderPluck(freq: number): Float32Array {
-  const n = Math.round(RATE * (PLUCK_DUR + 0.05));
-  const out = new Float32Array(n);
-  const w = (2 * Math.PI * freq) / RATE;
-  const fall = Math.log(0.0001) / (PLUCK_DUR - 0.02);
-  for (let i = 0; i < n; i++) {
-    const t = i / RATE;
-    const g = t < 0.02 ? t / 0.02 : t > PLUCK_DUR ? 0 : Math.exp(fall * (t - 0.02));
-    out[i] = Math.sin(w * i) * g;
-  }
-  return out;
+async function renderPluck(freq: number): Promise<AudioClip> {
+  const off = new OfflineAudioContext(1, Math.round(RATE * (PLUCK_DUR + 0.05)), RATE);
+  const osc = off.createOscillator();
+  osc.frequency.value = freq;
+  const g = off.createGain();
+  g.gain.value = 0;
+  g.gain.setValueAtTime(0, 0);
+  g.gain.linearRampToValueAtTime(1, 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, PLUCK_DUR);
+  g.gain.setValueAtTime(0, PLUCK_DUR);
+  osc.connect(g).connect(off.destination);
+  osc.start();
+  const r = await off.startRendering();
+  return createClip([r.getChannelData(0)], RATE);
 }
 const PLUCK_FREQS: number[] = [];
 for (const oct of [0, 1]) for (const d of SCALE) PLUCK_FREQS.push(ROOT * Math.pow(2, (d + 12 * oct) / 12));
@@ -126,21 +128,12 @@ function pluck(freq: number, gain: number, fifth: boolean): void {
 
 /** Each frame, once the mixer runs: the stems, the swell and the plucks. */
 export function update(): void {
-  if (context.state !== "running") return;
-  if (!ambClip) {
-    if (!renderAmbience(8000)) return;
-    try { ambClip = createClip([amb], RATE); } catch (e) { console.warn(`audio: ${String(e)}`); ambPos = 0; }
-    return;
-  }
+  if (context.state !== "running" || !ambClip) return;
   if (!ambVoice) {
     try { ambVoice = playClip(ambClip, { bus: "music", gain: 0, loop: true }); } catch { ambVoice = null; }
     return;
   }
-  if (pluckClips.size < PLUCK_FREQS.length) {
-    const f = PLUCK_FREQS[pluckClips.size]!;
-    try { pluckClips.set(f, createClip([renderPluck(f)], RATE)); } catch (e) { console.warn(`audio: ${String(e)}`); }
-    return;
-  }
+  if (pluckClips.size < PLUCK_FREQS.length) return;
   const t = frame().time;
   // the room tone at gain 0.35 × the old ambience 0.4 / music 0.5 balance, swelling ±0.1 at 0.07 Hz
   try { ambVoice.fade(suspended ? 0 : (0.35 + 0.1 * Math.sin(2 * Math.PI * 0.07 * t)) * 0.8, 0.15); } catch { /* the mixer restarted */ }

@@ -37,7 +37,7 @@ and keep lifting until the felt is bare.
 | `js/rules/validate.js` | Offline solvability proof (`proveSolvable`) and `findSolutionPath`, used by the tests and the play-script generator |
 | `js/rules/replay.js` | Replay envelope: schema/build/content versions, command log, checkpoint hashes, `verifyReplay` |
 | `js/store.js` | Progress record and `mergeProgress`, the game's options, the browser build's cloud save reader, the checksummed device store (boards, snapshots, replays) |
-| `js/i18n/strings.js`, `js/i18n/i18n.js`, `js/lang.js`, `js/sh-strings.js` | Translation tables (nine locales), the runtime (`NMI18N`), `T`/`N` for the modules, account strings |
+| `assets/strings.json`, `js/lang.js` | Translation tables (nine locales; account lines are the engine's `starhermit.*`), `T`/`N` for the modules. |
 | `tools/ui-style.css` → `assets/ui-style.json` | The old `css/main.css`, class-based, converted with `starhermit css` (`npm run css`) |
 | `tools/gen-plays.mjs`, `tools/browser-play.mjs`, `tools/package-web.mjs` | Play-script generator, browser check, web loader + file index |
 | `score-script.js` | StarHermit platform script (`server=`): range-checks a finished round's total and posts it to the `high-score` board |
@@ -345,7 +345,7 @@ that fires roughly every 0.9-2.3 s and goes silent while the window is hidden or
 **Playback** (`native/audio.ts`). `play(event)` plays the event's Opus clip on the runtime's mixer: menu
 sounds on the `interface` bus, the rest on `effects`. Every clip loads at once on start; a clip still loading is silent (the browser build's
 procedural fallback voices are not ported: a live synthesis graph makes clip loads fail on the web
-runtime). The room tone and the plucks are rendered into clips once (a slice a frame) and play on the
+runtime). The room tone and the plucks are rendered offline once at start and play on the
 `music` bus (the runtime has no ambience bus: the room tone's gain folds in the old 0.4 ambience against
 0.5 music); the 0.07 Hz swell is a fade each frame, the plucks follow the seeded timer. Volumes, mute and
 the voice limit are the runtime's Options. Every event returns a caption for the *Sound captions* option.
@@ -396,11 +396,11 @@ the voice limit are the runtime's Options. Every event returns a caption for the
 **Languages:** en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT — every player-facing
 string ships in all nine. Numerals, seeds, scores and times are formatted only at presentation time.
 
-**Where strings live:** `js/i18n/strings.js` holds the tables keyed by the English source text (en-GB,
-es-ES and fr-CA list only their differences). `js/i18n/i18n.js` (`NMI18N`, loaded with `loadClassic`)
+**Where strings live:** `assets/strings.json` holds the tables keyed by the English source text (en-GB,
+es-ES and fr-CA list only their differences). `native/i18n.ts` (`strings.load`, global `NMI18N`)
 looks them up; `js/lang.js` gives the content modules `T` / `N`; the engine's `REJECT` reasons stay English
 codes that the UI translates. In node the keys come back unchanged, so rules, replays and hashes are
-language-independent. Account strings live in `js/sh-strings.js`.
+language-independent. Account lines are the engine's `starhermit.*` keys (two sub-lines are `acct.*`).
 
 **Language setting:** the runtime's Options › Language (the player's choice, else the account's preferred
 language, else the device's), mapped to the nearest shipped locale (es-MX → es-419, en-AU → en-GB,
