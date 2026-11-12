@@ -1,3 +1,5 @@
+// localization-runtime:attached
+import { setLocalizedDefaultFont as __l10nSetFont, setLocalizedStyles as __l10nStyles } from "./l10n/font.ts";
 // The look of the menus, HUD, rail, tray, banners and dialogs: the browser
 // build's css/main.css, rewritten class-based in tools/ui-style.css and
 // converted once with `starhermit css` into assets/ui-style.json
@@ -18,7 +20,7 @@ const PALETTE_ACCENT: Record<string, string> = { deuteranopia: "#e8c34b", protan
 export function initStyles(): void {
   const css = files.readJson("assets/ui-style.json") as unknown as ui.CssStyles;
   base = { ...(css.tokens as Tokens) };
-  ui.setFont({ family: "sans-serif" });
+  __l10nSetFont({ family: "sans-serif" });
   ui.setTheme({
     fontSize: 16, smallSize: 13.6, headingSize: 24, padding: 8, spacing: 12, radius: 10,
     text: "#ece4d4", muted: "#9b94a8", panel: "#232838", control: "#2b3144", hovered: "#363d55",
@@ -26,7 +28,7 @@ export function initStyles(): void {
   });
   ui.setTokens(css.tokens);
   ui.setAnimations(css.animations);
-  ui.setStyles({
+  __l10nStyles({
     ...css.styles,
     label: { text: { color: "$ink" } },
     paragraph: { text: { color: "$ink" } },

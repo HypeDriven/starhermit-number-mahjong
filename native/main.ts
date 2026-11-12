@@ -1,3 +1,4 @@
+import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // Number Mahjong on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), played natively by the StarHermit client and in browsers by
 // the engine's web runtime. The rules (js/rules/engine.js), the content
@@ -953,7 +954,7 @@ onUpdate(() => {
   app.toasts = app.toasts.filter((x) => x.until > t);
   if (app.caption && app.caption.until <= t) app.caption = null;
 });
-onRender(() => {
+onRender(__l10nRender(() => {
   hudRects.length = 0;
   // the 3D desk draws only behind the round's play view (menus covered it, as the old canvas was hidden)
   render.setActive(app.state !== null && !app.board2d && app.screen === null);
@@ -961,4 +962,8 @@ onRender(() => {
   for (const fn of pendingActs.splice(0)) fn();
   pointerInput();
   render.update();
-});
+}));
+
+// localization-runtime:menu
+import { installLanguageMenu as __installLanguageMenu } from "./l10n/menu.ts";
+__installLanguageMenu(false);

@@ -1,3 +1,5 @@
+// localization-runtime:attached
+import { localizedCanvasFont as __l10nCanvasFont } from "./l10n/font.ts";
 // The observatory desk on starhermit:scene, as the browser build's
 // js/app/render3d.js drew it with three.js r160: the desk and the felt, the
 // warm key light with its board-fitted shadow, the hemisphere fill and the oil
@@ -373,7 +375,7 @@ function valueTexture(value: number): { map: Texture; bump: Texture | null } {
   }
   g.globalAlpha = 1;
   const fontSpec = `700 ${84 * k}px Georgia, serif`;
-  g.font = fontSpec;
+  g.font = __l10nCanvasFont(fontSpec);
   g.textAlign = "center";
   g.textBaseline = "middle";
   if (det) {
@@ -393,7 +395,7 @@ function valueTexture(value: number): { map: Texture; bump: Texture | null } {
     bg.fillStyle = "#fff";
     bg.fillRect(0, 0, W, H);
     bg.fillStyle = "#000";
-    bg.font = fontSpec; bg.textAlign = "center"; bg.textBaseline = "middle";
+    bg.font = __l10nCanvasFont(fontSpec); bg.textAlign = "center"; bg.textBaseline = "middle";
     bg.fillText(String(value), 64 * k, 84 * k);
     bg.strokeStyle = "#555";
     bg.lineWidth = 4 * k;
