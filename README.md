@@ -1,5 +1,7 @@
 # Number Mahjong
 
+**[▶ Play Number Mahjong on StarHermit](https://dashboard.starhermit.com/play/841cc1af-f1b8-4e57-b3a0-76e1a9bf7e29)**
+
 A calm observatory-desk puzzle: remove pairs of exposed numbered tiles whose
 values satisfy the round's rule (sum target, matching twins, or exact
 difference), uncovering deeper tiles as you play.
