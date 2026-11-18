@@ -15,7 +15,7 @@ and keep lifting until the felt is bare.
 | Genre | Single-player number-pair tile solitaire (mahjong-solitaire exposure, arithmetic matching) |
 | Players | 1, with asynchronous score comparison on shared seeds |
 | Session | 60-90 s for a lesson or an early journey stage; 3-5 min for a daily or a capstone |
-| Platforms | StarHermit engine 1.39.0 script game (`engine.minor=39`): natively in the StarHermit client and in browsers through the engine's web runtime; portrait and landscape; keyboard, pointer, touch, gamepad |
+| Platforms | StarHermit engine 1.44.1 script game (`engine.minor=44`): natively in the StarHermit client and in browsers through the engine's web runtime; portrait and landscape; keyboard, pointer, touch, gamepad |
 | Rendering | `starhermit:scene` (three.js r185-like) for the desk and tiles, `starhermit:ui` for every screen and the HUD, `starhermit:canvas` for the procedural textures |
 | Networking | Offline-first. Signed in (the runtime owns sign-in and tokens), the game uses the player, the cloud save, per-player settings, the platform clock (`serverNow`) for the Daily, the high-score leaderboard (read, and score posts through `score-script.js`) and invite links; guests make no platform request |
 
@@ -436,7 +436,7 @@ without ending a round.
 
 `starhermit.txt` declares `name`, `description`, `owner`, `server=score-script.js`, `version`, `cover`,
 `launch=index.html` (the web loader `npm run package` writes), `engine.api=1`, `engine.entry=native/main.ts`,
-`engine.version=1.39.0`, `engine.minor=39`, `engine.capabilities=platform,storage,clipboard`, and a
+`engine.version=1.44.1`, `engine.minor=44`, `engine.capabilities=platform,storage,clipboard`, and a
 `control.<action>` and `engine.gamepad.<action>` default for every action.
 
 - *Player* — the runtime signs players in (`player()`); the title offers **Sign in with StarHermit**
@@ -558,3 +558,9 @@ turn the camera off).
 The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-SG`, `en-HK`, `en-BQ`, `es-CO`, `de-IT`, `fr-IT`, `es-CL`, `es-AR`, `es-EC`, `de-BR`. These reuse the corresponding existing translations in their language family. The runtime can resolve the exact regional tag. Language selection is available from the game’s Options panel or F2 and is saved per player in `ui.language`. Changes apply during play. Additional national, regional and indigenous language packs are only shipped once every English message has a translation with intact placeholders and markup. Complete additional language tables: `nl-BE`, `zh-SG`, `nl-NL`, `fi-FI`, `sv-FI`, `ja-JP`, `ms-SG`, `ta-SG`, `zh-HK`, `yue-HK`, `et-EE`, `id-ID`, `vi-VN`, `ru-FI`, `ru-EE`, `su-ID`, `da-DE`, `lb-BE`, `co-FR`, `eu-FR`, `ca-FR`, `oc-FR`, `sl-IT`, `fur-IT`, `ca-IT`, `oc-IT`, `ca-ES`, `eu-ES`, `gl-ES`, `bew-ID`, `km-VN`.
 
 <!-- regional-localization:end -->
+
+## Engine 1.44.1
+
+Browser play uses the WebGPU-only StarHermit 1.44.1 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+
+Toasts use native engine stacking, styling, accessibility and lifetime management.

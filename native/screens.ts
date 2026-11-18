@@ -174,7 +174,6 @@ export function drawScreens(): void {
   const s = app.screen;
   if (s === null && app.state) playView(L);
   else page(s ?? "title", L);
-  toasts(L, s === null);
   caption(L);
   if (s !== null && s !== "title") accountChip(L, false);
   else if (s === "title") accountChip(L, true);
@@ -848,21 +847,6 @@ function pauseSheet(L: Layout): void {
 }
 
 // ------------------------------------------------------------------ toasts and captions
-function toasts(L: Layout, inPlay: boolean): void {
-  if (!app.toasts.length) return;
-  const w = L.lw - 32;
-  const tray = L.narrow && !L.short;
-  ui.place("toasts", inPlay ? { anchor: "bottom", y: tray ? 150 : 90 } : { anchor: "top", y: 14 }, () => {
-    ui.column("toast-stack", () => {
-      app.toasts.forEach((t, i) => {
-        ui.style(__l10nStyle(t.error ? "toast-error" : "toast")).row(`toast-${i}`, () => {
-          const cls = t.error ? "toast-text-error" : "toast-text";
-          if (tw(t.text, cls) > w - 40) ui.style(__l10nStyle(cls)).paragraph(t.text, w - 40); else ui.style(__l10nStyle(cls)).label(t.text);
-        }, { align: "center" });
-      });
-    }, { spacing: 8, align: "center" });
-  });
-}
 function caption(L: Layout): void {
   const c = app.caption;
   if (!c) return;

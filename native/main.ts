@@ -107,8 +107,7 @@ export function announce(text: string, assertive = false): void {
 }
 /** ui.js toast(): 2.6 s, at most three. */
 export function toast(text: string, error = false): void {
-  app.toasts.push({ text, error, until: now() + 2.6 });
-  while (app.toasts.length > 3) app.toasts.shift();
+  ui.toast!(text, { kind: error ? "error" : "info", duration: 2.6, position: "bottom", offset: 90, style: error ? "toast-error" : "toast", dismissible: false });
   if (!error) sfx("toast");
 }
 /** A sound with its caption (Sound captions: "♪ …" for 1.4 s). */
