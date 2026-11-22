@@ -15,7 +15,7 @@ and keep lifting until the felt is bare.
 | Genre | Single-player number-pair tile solitaire (mahjong-solitaire exposure, arithmetic matching) |
 | Players | 1, with asynchronous score comparison on shared seeds |
 | Session | 60-90 s for a lesson or an early journey stage; 3-5 min for a daily or a capstone |
-| Platforms | StarHermit engine 1.44.1 script game (`engine.minor=44`): natively in the StarHermit client and in browsers through the engine's web runtime; portrait and landscape; keyboard, pointer, touch, gamepad |
+| Platforms | StarHermit engine 1.47.0 script game (`engine.minor=47`): natively in the StarHermit client and in browsers through the engine's web runtime; portrait and landscape; keyboard, pointer, touch, gamepad |
 | Rendering | `starhermit:scene` (three.js r185-like) for the desk and tiles, `starhermit:ui` for every screen and the HUD, `starhermit:canvas` for the procedural textures |
 | Networking | Offline-first. Signed in (the runtime owns sign-in and tokens), the game uses the player, the cloud save, per-player settings, the platform clock (`serverNow`) for the Daily, the high-score leaderboard (read, and score posts through `score-script.js`) and invite links; guests make no platform request |
 
@@ -436,7 +436,7 @@ without ending a round.
 
 `starhermit.txt` declares `name`, `description`, `owner`, `server=score-script.js`, `version`, `cover`,
 `launch=index.html` (the web loader `npm run package` writes), `engine.api=1`, `engine.entry=native/main.ts`,
-`engine.version=1.44.1`, `engine.minor=44`, `engine.capabilities=platform,storage,clipboard`, and a
+`engine.version=1.47.0`, `engine.minor=47`, `engine.capabilities=platform,storage,clipboard`, and a
 `control.<action>` and `engine.gamepad.<action>` default for every action.
 
 - *Player* — the runtime signs players in (`player()`); the title offers **Sign in with StarHermit**
@@ -559,8 +559,12 @@ The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-S
 
 <!-- regional-localization:end -->
 
-## Engine 1.44.1
+## Engine 1.47.0
 
-Browser play uses the WebGPU-only StarHermit 1.44.1 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+Browser play uses the WebGPU-only StarHermit 1.47.0 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
 
 Toasts use native engine stacking, styling, accessibility and lifetime management.
+
+Browser rendering uses the engine's asynchronous pipeline creation so newly encountered materials do not stall the page. Native play retains the engine's synchronous pipeline behavior.
+
+Higher graphics tiers use native per-object motion blur for moving pieces and effects. Camera motion stays sharp, lower tiers omit the effect, and the runtime's Motion blur and Reduce motion preferences remain authoritative.
