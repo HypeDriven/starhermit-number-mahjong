@@ -1,3 +1,4 @@
+import { showCursor } from "./cursor.ts";
 import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // Number Mahjong on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), played natively by the StarHermit client and in browsers by
@@ -883,7 +884,8 @@ function pointerInput(): void {
     pointerMoved = false;
     const p = pointer();
     const id = live && p && !onHud(p.x, p.y) ? render.pick(p.x, p.y) : null;
-    setCursor(id != null && app.state && E.isExposed(app.state, id) ? "pointer" : "default");
+    if (id != null && app.state && E.isExposed(app.state, id)) setCursor("pointer");
+    else showCursor();
   }
 }
 
@@ -903,6 +905,7 @@ function refreshAvatar(): void {
 }
 
 onStart(() => {
+  showCursor();
   setFixedRate(60);
   initStyles();
   platform.initPlatform();
