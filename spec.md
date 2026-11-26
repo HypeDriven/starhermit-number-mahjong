@@ -561,10 +561,14 @@ The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-S
 
 ## Engine 1.50.0
 
-Browser play uses the WebGPU-only StarHermit 1.50.0 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+Browser play uses the StarHermit 1.50.0 web runtime on WebGPU, or WebGL 2 where WebGPU is missing. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
 
 Toasts use native engine stacking, styling, accessibility and lifetime management.
 
 Browser rendering uses the engine's asynchronous pipeline creation so newly encountered materials do not stall the page. Native play retains the engine's synchronous pipeline behavior.
+
+**Frame rate (host API 1.49 `setTargetFps`).** The game caps itself at 30 frames a second on the title (its page covers the window and the desk does not draw there) and, under a finger (`primaryPointer() === "coarse"`), on the phone graphics levels (`levelIndex` ≤ 3), where even 33 ms frames replace uneven ones; elsewhere there is no game cap. The round clock stays 60 fixed steps a second whatever the frame rate. The engine sets the cap aside while its menus are open, and the player's Frame rate limit still applies.
+
+**Still scenery (host API 1.49).** The desk, the felt and the detailed props (telescope, star chart, books, cloth, and the oil lamp's base, font and chimney) are `movable = false`, so the renderer caches them in shadow maps from the first frame and the scene's sync skips their transforms. The tiles (they lift, shake and fly off), the lamp's flickering flame, the selection ring, sparks and motes stay movable.
 
 Higher graphics tiers use native per-object motion blur for moving pieces and effects. Camera motion stays sharp, lower tiers omit the effect, and the runtime's Motion blur and Reduce motion preferences remain authoritative.

@@ -22,8 +22,8 @@ import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // exactly; the countdown (650 ms a number, 450 ms "Observe") and the 750 ms
 // resolve settle count the same steps.
 import "./i18n.ts";
-import { clipboard, frame, levelSettings, onFixedUpdate, onPreferencesChange, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
-import { bindingLabel, onAction, onPointerButton, onPointerMove, onTouch, pointer, setCursor } from "starhermit:input";
+import { clipboard, frame, levelSettings, onFixedUpdate, onPreferencesChange, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate, setTargetFps } from "starhermit:engine";
+import { bindingLabel, onAction, onPointerButton, onPointerMove, onTouch, pointer, setCursor, primaryPointer } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import type { ImageBitmap } from "starhermit:canvas";
 import { avatar, onSessionEnded, player, requestSignIn } from "starhermit:platform";
@@ -948,8 +948,19 @@ onFixedUpdate(() => {
   resolveStep();
 });
 
+/** The game's frame cap (host API 1.49 setTargetFps, set only on a change): 30 on the title (its page covers the window and the desk does not draw there)
+ * and on phone levels (levelIndex <= 3) under a finger; none otherwise. The round clock stays 60 fixed
+ * steps a second. */
+let frameCap = -1;
+function capFrames(): void {
+  const cap = app.screen === "title" || (frame().levelIndex <= 3 && primaryPointer() === "coarse") ? 30 : 0;
+  if (cap === frameCap) return;
+  frameCap = cap;
+  setTargetFps(cap || null);
+}
 onUpdate(() => {
   applyLook();
+  capFrames();
   applyTokens(themeNow(), platform.options.palette, ui.preferences().highContrast);
   audio.update();
   const t = now();

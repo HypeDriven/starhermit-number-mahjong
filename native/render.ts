@@ -125,11 +125,13 @@ function applyEnv(m: MeshStandardMaterial, intensity: number): void {
 const deskMat = envMat(new MeshStandardMaterial({ color: 0x3a2f28, roughness: 0.82, metalness: 0.05 }), 0.12);
 const desk = new Mesh(new BoxGeometry(26, 0.6, 18), deskMat);
 desk.position.y = -0.3;
+desk.movable = false;
 desk.receiveShadow = true;
 scene.add(desk);
 const feltMat = envMat(new MeshStandardMaterial({ color: 0x2e4038, roughness: 0.95 }), 0.12);
 const felt = new Mesh(new BoxGeometry(15, 0.08, 12), feltMat);
 felt.position.y = 0.04;
+felt.movable = false;
 felt.receiveShadow = true;
 scene.add(felt);
 
@@ -175,11 +177,13 @@ function buildProps(): void {
   }
   scope.position.set(-6.4, 0, -3.4);
   scope.traverse((o) => { if (o instanceof Mesh) o.castShadow = true; });
+  scope.movable = false;
   propsGroup.add(scope);
   // star chart leaning at the back
   const chart = new Mesh(new PlaneGeometry(3.6, 2.4), envMat(new MeshStandardMaterial({ map: chartTexture(), roughness: 0.9 }), 0.2));
   chart.position.set(3.8, 1.5, -5.2);
   chart.rotation.x = -0.16;
+  chart.movable = false;
   propsGroup.add(chart);
   // book stack on the right
   const bookCols = [0x6d3b32, 0x2f4a3e, 0x3e3a52];
@@ -190,6 +194,7 @@ function buildProps(): void {
     book.position.set(6.2, 0.17 + i * 0.27, -2.2);
     book.rotation.y = (i - 1) * 0.12;
     book.castShadow = true;
+    book.movable = false;
     book.receiveShadow = true;
     propsGroup.add(book);
   }
@@ -207,6 +212,7 @@ function buildProps(): void {
   flame.scale.set(1, 2.1, 1);
   flame.position.y = 0.78;
   base.castShadow = font.castShadow = true;
+  base.movable = font.movable = glass.movable = false; // the flame flickers (its scale), so the lamp group stays unset
   lampG.add(base, font, glass, flame);
   lampG.position.set(-4.5, 0, -2.5);
   propsGroup.add(lampG);
@@ -214,6 +220,7 @@ function buildProps(): void {
   const cloth = new Mesh(new BoxGeometry(1.4, 0.03, 1.1), clothMat);
   cloth.position.set(-4.6, 0.015, -2.6);
   cloth.rotation.y = 0.3;
+  cloth.movable = false;
   cloth.receiveShadow = true;
   propsGroup.add(cloth);
 }
