@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-08-17T16:42:38.39872+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-26T13:01:23.34499+00:00",
+    "coverArtUpdatedAt": "2026-11-27T17:07:07.747092+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-26T13:01:23.333191+00:00",
+      "deployedAt": "2026-11-27T17:07:07.736246+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.50.0",
+      "engineVersion": "1.53.0",
       "deployWarning": null
     },
     "description": "Remove available number-tile pairs that satisfy the current matching rule until the board is clear.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-26T13:01:23.448Z",
-  "sourceCommit": "aa9a792bb3bf5566c50fc5526de84f3f938f27ec",
-  "bytesReceived": 3026851,
-  "archiveSha256": "86765559a7adf868ceef199f37029afe6d65d080d08752579322783dd7da7e1a",
+  "publishedAt": "2026-11-27T17:07:07.913Z",
+  "sourceCommit": "2515d729f8c279200a148c43dcbd1bdf7c2c9181",
+  "bytesReceived": 3027299,
+  "archiveSha256": "095e28360ca12b8057045f5eb6dd58dbaf7401c76b88226e38e5f9199660bba6",
   "indexSha256": "8429e09e9f4397e673398a01db21b4f556db3d94f5b92e9aa411d89169c34403",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 3026851,
+    "bytesReceived": 3027299,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.50.0",
+    "engineVersion": "1.53.0",
     "deployWarning": null
   },
   "liveVerification": {
